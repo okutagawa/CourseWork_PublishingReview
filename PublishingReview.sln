@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PublishingReviewBusinessLog
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PublishingReviewDatabaseImplements", "PublishingReviewDatabaseImplements\PublishingReviewDatabaseImplements.csproj", "{F9FC104D-B9A5-4E18-9FA0-27DAA7ADCA53}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PublishingReviewRestApi", "PublishingReviewRestApi\PublishingReviewRestApi.csproj", "{DA4F6B57-5652-4D9B-A397-85903E0EB86D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{F9FC104D-B9A5-4E18-9FA0-27DAA7ADCA53}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F9FC104D-B9A5-4E18-9FA0-27DAA7ADCA53}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F9FC104D-B9A5-4E18-9FA0-27DAA7ADCA53}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA4F6B57-5652-4D9B-A397-85903E0EB86D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA4F6B57-5652-4D9B-A397-85903E0EB86D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA4F6B57-5652-4D9B-A397-85903E0EB86D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA4F6B57-5652-4D9B-A397-85903E0EB86D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
