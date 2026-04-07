@@ -1,4 +1,5 @@
 ﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewDatabaseImplements.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
