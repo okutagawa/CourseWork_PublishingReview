@@ -1,5 +1,4 @@
-﻿// PublishingReviewBusinessLogic/OfficePack/SaveToPdf.cs
-using Microsoft.VisualBasic;
+﻿using Microsoft.VisualBasic;
 using MigraDoc.DocumentObjectModel;
 using MigraDoc.DocumentObjectModel.Tables;
 using MigraDoc.Rendering;
@@ -7,8 +6,6 @@ using PublishingReviewBusinessLogic.OfficePack.HelpModels;
 using PublishingReviewBusinessLogic.ViewModels;
 using System;
 using System.Collections.Generic;
-using System.Reflection.Metadata;
-using static System.Collections.Specialized.BitVector32;
 
 namespace PublishingReviewBusinessLogic.OfficePack
 {

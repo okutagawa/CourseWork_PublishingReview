@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "9nxcuvMH0jA=",
+  "dgSpecHash": "d8KiYjsiEtU=",
   "success": true,
   "projectFilePath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
   "expectedPackageFiles": [
@@ -22,8 +22,6 @@
     "C:\\Users\\sasha\\.nuget\\packages\\microsoft.extensions.primitives\\10.0.5\\microsoft.extensions.primitives.10.0.5.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\pdfsharp-gdi\\6.2.4\\pdfsharp-gdi.6.2.4.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\pdfsharp-migradoc-gdi\\6.2.4\\pdfsharp-migradoc-gdi.6.2.4.nupkg.sha512",
-    "C:\\Users\\sasha\\.nuget\\packages\\pdfsharp-migradoc-wpf\\6.2.4\\pdfsharp-migradoc-wpf.6.2.4.nupkg.sha512",
-    "C:\\Users\\sasha\\.nuget\\packages\\pdfsharp-wpf\\6.2.4\\pdfsharp-wpf.6.2.4.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\system.componentmodel.annotations\\5.0.0\\system.componentmodel.annotations.5.0.0.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\system.diagnostics.diagnosticsource\\10.0.5\\system.diagnostics.diagnosticsource.10.0.5.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\system.memory\\4.6.3\\system.memory.4.6.3.nupkg.sha512",
@@ -62,30 +60,6 @@
       "warningLevel": 1,
       "filePath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
       "libraryId": "PDFsharp-MigraDoc-GDI",
-      "targetGraphs": [
-        "net8.0"
-      ]
-    },
-    {
-      "code": "NU1701",
-      "level": "Warning",
-      "message": "Пакет \"PDFsharp-MigraDoc-WPF 6.2.4\" был восстановлен с помощью \".NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1\", а не целевой платформы проекта \"net8.0\". Этот пакет может быть не полностью совместим с вашим проектом.",
-      "projectPath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
-      "warningLevel": 1,
-      "filePath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
-      "libraryId": "PDFsharp-MigraDoc-WPF",
-      "targetGraphs": [
-        "net8.0"
-      ]
-    },
-    {
-      "code": "NU1701",
-      "level": "Warning",
-      "message": "Пакет \"PDFsharp-WPF 6.2.4\" был восстановлен с помощью \".NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1\", а не целевой платформы проекта \"net8.0\". Этот пакет может быть не полностью совместим с вашим проектом.",
-      "projectPath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
-      "warningLevel": 1,
-      "filePath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
-      "libraryId": "PDFsharp-WPF",
       "targetGraphs": [
         "net8.0"
       ]

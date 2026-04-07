@@ -6,4 +6,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Folder Include="Implements\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PublishingReviewBusinessLogic\PublishingReviewBusinessLogic.csproj" />
+    <ProjectReference Include="..\PublishingReviewContracts\PublishingReviewContracts.csproj" />
+    <ProjectReference Include="..\PublishingReviewDataModels\PublishingReviewDataModels.csproj" />
+  </ItemGroup>
+
 </Project>

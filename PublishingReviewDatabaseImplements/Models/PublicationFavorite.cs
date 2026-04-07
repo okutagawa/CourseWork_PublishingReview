@@ -1,8 +1,4 @@
-﻿// PublishingReviewDatabase/Models/PublicationFavorite.cs
-using PublishingReviewDatabaseImplements.Models;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace PublishingReviewDatabase.Models
+﻿namespace PublishingReviewDatabase.Models
 {
     // Явная join-таблица Publication <-> User (Favorites)
     public class PublicationFavorite

@@ -12,6 +12,9 @@ namespace PublishingReviewContracts.BindingModel
         public int Id { get; set; }
         public string FileName { get; set; } = string.Empty;
         public byte[] FileData { get; set; } = new byte[0];
+        public string MimeType { get; set; } = string.Empty;
+        public long SizeBytes { get; set; }
+        public string StoragePath { get; set; } = string.Empty;
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
         public int ReviewId { get; set; }
     }

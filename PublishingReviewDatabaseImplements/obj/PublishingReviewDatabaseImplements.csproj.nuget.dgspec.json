@@ -77,10 +77,6 @@
             "PDFsharp-MigraDoc-GDI": {
               "target": "Package",
               "version": "[6.2.4, )"
-            },
-            "PDFsharp-MigraDoc-WPF": {
-              "target": "Package",
-              "version": "[6.2.4, )"
             }
           },
           "imports": [

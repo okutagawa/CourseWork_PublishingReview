@@ -14,5 +14,12 @@ namespace PublishingReviewContracts.BindingModel
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int ReviewId { get; set; }
         public int AuthorId { get; set; }
+
+        // Совместимость со старым именованием полей
+        public int UserId
+        {
+            get => AuthorId;
+            set => AuthorId = value;
+        }
     }
 }

@@ -20,5 +20,24 @@ namespace PublishingReviewContracts.BindingModel
         public int PublicationId { get; set; }
         public int ReviewerId { get; set; }
         public int? ConfirmedById { get; set; }
+
+        // Совместимость со старым именованием
+        public int UserId
+        {
+            get => ReviewerId;
+            set => ReviewerId = value;
+        }
+
+        public bool IsApproved
+        {
+            get => Status == ReviewStatus.Confirmed;
+            set => Status = value ? ReviewStatus.Confirmed : ReviewStatus.Pending;
+        }
+
+        public int? ApprovedByEmployeeId
+        {
+            get => ConfirmedById;
+            set => ConfirmedById = value;
+        }
     }
 }

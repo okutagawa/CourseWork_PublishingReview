@@ -1,12 +1,46 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using PublishingReviewContracts.BindingModel;
+using System.ComponentModel.DataAnnotations;
 
-namespace PublishingReviewDatabaseImplements.Models
+namespace PublishingReviewDatabase.Models
 {
-    internal class Employee
+    public class Employee
     {
+        [Required]
+        public string FullName { get; private set; } = string.Empty;
+
+        [Required]
+        public string Position { get; private set; } = "Editor";
+
+        [Required]
+        public string Email { get; private set; } = string.Empty;
+
+        public int Id { get; private set; }
+
+        public static Employee? Create(EmployeeBindingModel model)
+        {
+            if (model == null) return null;
+            return new Employee
+            {
+                FullName = model.FullName,
+                Position = model.Position ?? "Editor",
+                Email = model.Email
+            };
+        }
+
+        public void Update(EmployeeBindingModel model)
+        {
+            if (model == null) return;
+            FullName = model.FullName;
+            Position = model.Position ?? Position;
+            Email = model.Email;
+        }
+
+        public EmployeeBindingModel GetEmployee => new EmployeeBindingModel
+        {
+            Id = Id,
+            FullName = FullName,
+            Position = Position,
+            Email = Email
+        };
     }
 }
