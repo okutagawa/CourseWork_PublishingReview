@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 // --- Logging: log4net provider (файл log4net.config должен быть в корне проекта)
 builder.Logging.ClearProviders();
 builder.Logging.SetMinimumLevel(LogLevel.Trace);
-builder.Logging.AddConsole(); // на время разработки оставляем консоль
+builder.Logging.AddConsole();
 builder.Logging.AddLog4Net("log4net.config");
 
 // --- Конфигурация: строка подключения берётся из appsettings или переменной окружения
@@ -21,32 +21,32 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? Environment.GetEnvironmentVariable("PUBLISHING_DB_CONNECTION");
 
 // --- Регистрация DbContext делаем опциональной: если connectionString пустой — пропускаем регистрацию БД
-if (!string.IsNullOrWhiteSpace(connectionString))
+builder.Services.AddDbContext<PublishingDatabase>(options =>
 {
-    builder.Services.AddDbContext<PublishingDatabase>(options =>
-        options.UseNpgsql(connectionString));
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        options.UseNpgsql(connectionString);
+    }
+});
+builder.Services.AddDbContext<PublishingDatabase>(options =>
+options.UseNpgsql(connectionString));
 
-    // Регистрация storage/logic, которые зависят от DbContext
-    builder.Services.AddScoped<IUserStorage, UserStorage>();
-    builder.Services.AddScoped<IPublicationStorage, PublicationStorage>();
-    builder.Services.AddScoped<IReviewStorage, ReviewStorage>();
-    builder.Services.AddScoped<ICommentStorage, CommentStorage>();
-    builder.Services.AddScoped<IAttachmentStorage, AttachmentStorage>();
-    builder.Services.AddScoped<IEmployeeStorage, EmployeeStorage>();
+// Регистрация storage/logic, которые зависят от DbContext
+builder.Services.AddScoped<IUserStorage, UserStorage>();
+builder.Services.AddScoped<IPublicationStorage, PublicationStorage>();
+builder.Services.AddScoped<IReviewStorage, ReviewStorage>();
+builder.Services.AddScoped<ICommentStorage, CommentStorage>();
+builder.Services.AddScoped<IAttachmentStorage, AttachmentStorage>();
+builder.Services.AddScoped<IEmployeeStorage, EmployeeStorage>();
 
-    builder.Services.AddScoped<IUserLogic, UserLogic>();
-    builder.Services.AddScoped<IPublicationLogic, PublicationLogic>();
-    builder.Services.AddScoped<IReviewLogic, ReviewLogic>();
-    builder.Services.AddScoped<ICommentLogic, CommentLogic>();
-    builder.Services.AddScoped<IAttachmentLogic, AttachmentLogic>();
-    builder.Services.AddScoped<IEmployeeLogic, EmployeeLogic>();
+builder.Services.AddScoped<IUserLogic, UserLogic>();
+builder.Services.AddScoped<IPublicationLogic, PublicationLogic>();
+builder.Services.AddScoped<IReviewLogic, ReviewLogic>();
+builder.Services.AddScoped<ICommentLogic, CommentLogic>();
+builder.Services.AddScoped<IAttachmentLogic, AttachmentLogic>();
+builder.Services.AddScoped<IEmployeeLogic, EmployeeLogic>();
 
-    // PasswordHasher для логики, если используется
-    builder.Services.AddScoped<IPasswordHasher<UserBindingModel>, PasswordHasher<UserBindingModel>>();
-}
-else
-{
-}
+builder.Services.AddScoped<IPasswordHasher<UserBindingModel>, PasswordHasher<UserBindingModel>>();
 
 // NoOpMailLogic можно зарегистрировать всегда (чтобы не требовать почту)
 builder.Services.AddControllers();
@@ -54,6 +54,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<PublishingDatabase>();
+    db.Database.Migrate();
+}
 
 // Middleware для ошибок (короткая JSON-обработка)
 app.UseExceptionHandler(errorApp =>
