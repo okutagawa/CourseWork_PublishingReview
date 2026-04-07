@@ -1,35 +1,44 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PublishingReviewDatabase;
-using PublishingReviewDatabase.Models;
+using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.BusinessLogicContracts;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewRestApi.Models.Dto;
+
+namespace PublishingReviewRestApi.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 public class CommentsController : ControllerBase
 {
-    private readonly PublishingDatabase _db;
-    public CommentsController(PublishingDatabase db) => _db = db;
+    private readonly ICommentLogic _commentLogic;
+
+    public CommentsController(ICommentLogic commentLogic)
+    {
+        _commentLogic = commentLogic;
+    }
 
     [HttpGet("ByReview/{reviewId:int}")]
-    public async Task<IActionResult> GetByReview(int reviewId) => Ok(await _db.Comments.Where(c => c.ReviewId == reviewId).ToListAsync());
-
+    public IActionResult GetByReview(int reviewId) => Ok(_commentLogic.ReadList(new CommentSearchModel { ReviewId = reviewId }) ?? new());
+    
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CommentCreateDto dto)
+    public IActionResult Create([FromBody] CommentCreateDto dto)
     {
-        var comment = new Comment { ReviewId = dto.ReviewId, UserId = dto.UserId, Text = dto.Text };
-        _db.Comments.Add(comment);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetByReview), new { reviewId = dto.ReviewId }, comment);
+        var model = new CommentBindingModel
+        {
+            ReviewId = dto.ReviewId,
+            AuthorId = dto.UserId,
+            Content = dto.Content,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _commentLogic.Create(model);
+        return Ok();
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    public IActionResult Delete(int id)
     {
-        var c = await _db.Comments.FindAsync(id);
-        if (c == null) return NotFound();
-        _db.Comments.Remove(c);
-        await _db.SaveChangesAsync();
+        _commentLogic.Delete(new CommentBindingModel { Id = id });
         return NoContent();
     }
 }

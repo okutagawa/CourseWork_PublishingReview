@@ -1,53 +1,73 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PublishingReviewDatabase;
-using PublishingReviewDatabase.Models;
+using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.BusinessLogicContracts;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewRestApi.Models.Dto;
+
+namespace PublishingReviewRestApi.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 public class ReviewsController : ControllerBase
 {
-    private readonly PublishingDatabase _db;
-    public ReviewsController(PublishingDatabase db) => _db = db;
+
+    private readonly IReviewLogic _reviewLogic;
+
+    public ReviewsController(IReviewLogic reviewLogic)
+    {
+        _reviewLogic = reviewLogic;
+    }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await _db.Reviews.ToListAsync());
+    public IActionResult GetAll() => Ok(_reviewLogic.ReadList(null) ?? new());
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> Get(int id)
+    public IActionResult Get(int id)
     {
-        var r = await _db.Reviews.FindAsync(id);
-        if (r == null) return NotFound();
-        return Ok(r);
+        var review = _reviewLogic.ReadElement(new ReviewSearchModel { Id = id });
+        return review == null ? NotFound() : Ok(review);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] ReviewCreateDto dto)
+    public IActionResult Create([FromBody] ReviewCreateDto dto)
     {
-        var review = new Review { PublicationId = dto.PublicationId, UserId = dto.UserId, Text = dto.Text, Approved = dto.Approved };
-        _db.Reviews.Add(review);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = review.Id }, review);
+        var model = new ReviewBindingModel
+        {
+            PublicationId = dto.PublicationId,
+            ReviewerId = dto.UserId,
+            Content = dto.Content,
+            Rating = dto.Rating,
+            IsApproved = dto.IsApproved,
+            ApprovedByEmployeeId = dto.ApprovedByEmployeeId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _reviewLogic.Create(model);
+        return Ok();
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] ReviewCreateDto dto)
+    public IActionResult Update(int id, [FromBody] ReviewCreateDto dto)
     {
-        var review = await _db.Reviews.FindAsync(id);
-        if (review == null) return NotFound();
-        review.Text = dto.Text; review.Approved = dto.Approved;
-        await _db.SaveChangesAsync();
+        var model = new ReviewBindingModel
+        {
+            Id = id,
+            PublicationId = dto.PublicationId,
+            ReviewerId = dto.UserId,
+            Content = dto.Content,
+            Rating = dto.Rating,
+            IsApproved = dto.IsApproved,
+            ApprovedByEmployeeId = dto.ApprovedByEmployeeId
+        };
+
+        _reviewLogic.Update(model);
         return NoContent();
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    public IActionResult Delete(int id)
     {
-        var review = await _db.Reviews.FindAsync(id);
-        if (review == null) return NotFound();
-        _db.Reviews.Remove(review);
-        await _db.SaveChangesAsync();
+        _reviewLogic.Delete(new ReviewBindingModel { Id = id });
         return NoContent();
     }
 }

@@ -1,54 +1,73 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PublishingReviewDatabase;
-using PublishingReviewDatabaseImplements.Models;
+using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.BusinessLogicContracts;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewRestApi.Models.Dto;
+
+namespace PublishingReviewRestApi.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 public class UsersController : ControllerBase
 {
-    private readonly PublishingDatabase _db;
-    public UsersController(PublishingDatabase db) => _db = db;
+    private readonly IUserLogic _userLogic;
+
+    public UsersController(IUserLogic userLogic)
+    {
+        _userLogic = userLogic;
+    }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await _db.Users.ToListAsync());
+    public IActionResult GetAll() => Ok(_userLogic.ReadList(null) ?? new());
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> Get(int id)
+    public IActionResult Get(int id)
     {
-        var user = await _db.Users.FindAsync(id);
-        if (user == null) return NotFound();
-        return Ok(user);
+        var user = _userLogic.ReadElement(new UserSearchModel { Id = id });
+        return user == null ? NotFound() : Ok(user);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] UserCreateDto dto)
+    public IActionResult Create([FromBody] UserCreateDto dto)
     {
-        var user = new User { FullName = dto.FullName, Email = dto.Email };
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = user.Id }, user);
+        var model = new UserBindingModel
+        {
+            FullName = dto.FullName,
+            Username = dto.Username,
+            Email = dto.Email,
+            Password = dto.Password,
+            Role = dto.Role
+        };
+
+        _userLogic.Create(model);
+
+        var created = _userLogic.ReadElement(new UserSearchModel { Email = dto.Email });
+        return created == null
+            ? Ok()
+            : CreatedAtAction(nameof(Get), new { id = created.Id }, created);
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] UserCreateDto dto)
+    public IActionResult Update(int id, [FromBody] UserCreateDto dto)
     {
-        var user = await _db.Users.FindAsync(id);
-        if (user == null) return NotFound();
-        user.FullName = dto.FullName;
-        user.Email = dto.Email;
-        await _db.SaveChangesAsync();
+        var model = new UserBindingModel
+        {
+            Id = id,
+            FullName = dto.FullName,
+            Username = dto.Username,
+            Email = dto.Email,
+            Password = dto.Password,
+            Role = dto.Role
+        };
+
+        _userLogic.Update(model);
         return NoContent();
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    public IActionResult Delete(int id)
     {
-        var user = await _db.Users.FindAsync(id);
-        if (user == null) return NotFound();
-        _db.Users.Remove(user);
-        await _db.SaveChangesAsync();
+        _userLogic.Delete(new UserBindingModel { Id = id });
         return NoContent();
     }
 }

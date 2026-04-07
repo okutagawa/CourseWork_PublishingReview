@@ -1,67 +1,104 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PublishingReviewDatabase;
-using PublishingReviewDatabase.Models;
+using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.BusinessLogicContracts;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewDatabaseImplements.Models;
 using PublishingReviewRestApi.Models.Dto;
+
+namespace PublishingReviewRestApi.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 public class PublicationsController : ControllerBase
 {
+    private readonly IPublicationLogic _publicationLogic;
+
     private readonly PublishingDatabase _db;
-    public PublicationsController(PublishingDatabase db) => _db = db;
+    public PublicationsController(IPublicationLogic publicationLogic, PublishingDatabase db)
+    {
+        _publicationLogic = publicationLogic;
+        _db = db;
+    }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await _db.Publications.Include(p => p.Reviews).ToListAsync());
+    public IActionResult GetAll() => Ok(_publicationLogic.ReadList(null) ?? new());
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> Get(int id)
+    public IActionResult Get(int id)
     {
-        var pub = await _db.Publications.Include(p => p.Reviews).FirstOrDefaultAsync(p => p.Id == id);
-        if (pub == null) return NotFound();
-        return Ok(pub);
+        var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = id });
+        return publication == null ? NotFound() : Ok(publication);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] PublicationCreateDto dto)
+    public IActionResult Create([FromBody] PublicationCreateDto dto)
     {
-        var pub = new Publication { Name = dto.Name, SubjectId = dto.SubjectId, Date = dto.Date, Volume = dto.Volume };
-        _db.Publications.Add(pub);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = pub.Id }, pub);
+        var model = new PublicationBindingModel
+        {
+            Title = dto.Title,
+            SubjectId = dto.SubjectId,
+            SubjectText = dto.SubjectText,
+            PublishDate = dto.PublishDate ?? DateTime.UtcNow,
+            Volume = dto.Volume,
+            AuthorsText = dto.AuthorsText,
+            Description = dto.Description,
+            ResourcesRate = dto.ResourcesRate
+        };
+
+        _publicationLogic.Create(model);
+
+        var created = _publicationLogic.ReadElement(new PublicationSearchModel { Title = dto.Title });
+        return created == null
+            ? Ok()
+            : CreatedAtAction(nameof(Get), new { id = created.Id }, created);
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] PublicationCreateDto dto)
+    public IActionResult Update(int id, [FromBody] PublicationCreateDto dto)
     {
-        var pub = await _db.Publications.FindAsync(id);
-        if (pub == null) return NotFound();
-        pub.Name = dto.Name; pub.SubjectId = dto.SubjectId; pub.Date = dto.Date; pub.Volume = dto.Volume;
-        await _db.SaveChangesAsync();
+        var model = new PublicationBindingModel
+        {
+            Id = id,
+            Title = dto.Title,
+            SubjectId = dto.SubjectId,
+            SubjectText = dto.SubjectText,
+            PublishDate = dto.PublishDate ?? DateTime.UtcNow,
+            Volume = dto.Volume,
+            AuthorsText = dto.AuthorsText,
+            Description = dto.Description,
+            ResourcesRate = dto.ResourcesRate
+        };
+
+        _publicationLogic.Update(model);
         return NoContent();
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    public IActionResult Delete(int id)
     {
-        var pub = await _db.Publications.FindAsync(id);
-        if (pub == null) return NotFound();
-        _db.Publications.Remove(pub);
-        await _db.SaveChangesAsync();
+        _publicationLogic.Delete(new PublicationBindingModel { Id = id });
         return NoContent();
     }
 
     [HttpPost("AddAuthors")]
     public async Task<IActionResult> AddAuthors([FromBody] AddAuthorsDto dto)
     {
-        var pub = await _db.Publications.FindAsync(dto.PublicationId);
-        if (pub == null) return NotFound("Publication not found");
+        var publication = await _db.Publications.FindAsync(dto.PublicationId);
+        if (publication == null) return NotFound("Publication not found");
 
-        foreach (var userId in dto.UserIds)
+        foreach (var userId in dto.UserIds.Distinct())
         {
             var exists = await _db.PublicationAuthors.AnyAsync(pa => pa.PublicationId == dto.PublicationId && pa.UserId == userId);
-            if (!exists) _db.PublicationAuthors.Add(new PublicationAuthor { PublicationId = dto.PublicationId, UserId = userId });
+            if (!exists)
+            {
+                _db.PublicationAuthors.Add(new PublicationAuthor
+                {
+                    PublicationId = dto.PublicationId,
+                    UserId = userId
+                });
+            }
         }
         await _db.SaveChangesAsync();
         return NoContent();
@@ -72,6 +109,7 @@ public class PublicationsController : ControllerBase
     {
         var pa = await _db.PublicationAuthors.FirstOrDefaultAsync(x => x.PublicationId == publicationId && x.UserId == userId);
         if (pa == null) return NotFound();
+
         _db.PublicationAuthors.Remove(pa);
         await _db.SaveChangesAsync();
         return NoContent();

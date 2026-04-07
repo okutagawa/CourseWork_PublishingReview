@@ -1,34 +1,46 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PublishingReviewDatabase;
+using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.BusinessLogicContracts;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewRestApi.Models.Dto;
+
+namespace PublishingReviewRestApi.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 public class AttachmentsController : ControllerBase
 {
-    private readonly PublishingDatabase _db;
-    public AttachmentsController(PublishingDatabase db) => _db = db;
+    private readonly IAttachmentLogic _attachmentLogic;
+
+    public AttachmentsController(IAttachmentLogic attachmentLogic)
+    {
+        _attachmentLogic = attachmentLogic;
+    }
 
     [HttpGet("ByReview/{reviewId:int}")]
-    public async Task<IActionResult> GetByReview(int reviewId) => Ok(await _db.Attachments.Where(a => a.ReviewId == reviewId).ToListAsync());
+    public IActionResult GetByReview(int reviewId) => Ok(_attachmentLogic.ReadList(new AttachmentSearchModel { ReviewId = reviewId }) ?? new());
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] AttachmentCreateDto dto)
+    public IActionResult Create([FromBody] AttachmentCreateDto dto)
     {
-        var att = new Attachment { ReviewId = dto.ReviewId, FileName = dto.FileName, FilePath = dto.FilePath };
-        _db.Attachments.Add(att);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetByReview), new { reviewId = dto.ReviewId }, att);
+        var model = new AttachmentBindingModel
+        {
+            ReviewId = dto.ReviewId,
+            FileName = dto.FileName,
+            MimeType = dto.MimeType,
+            StoragePath = dto.StoragePath,
+            SizeBytes = dto.SizeBytes,
+            UploadedAt = DateTime.UtcNow
+        };
+
+        _attachmentLogic.Create(model);
+        return Ok();
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    public IActionResult Delete(int id)
     {
-        var a = await _db.Attachments.FindAsync(id);
-        if (a == null) return NotFound();
-        _db.Attachments.Remove(a);
-        await _db.SaveChangesAsync();
+        _attachmentLogic.Delete(new AttachmentBindingModel { Id = id });
         return NoContent();
     }
 }
