@@ -26,16 +26,9 @@ namespace PublishingReviewDatabaseImplements.Models
         public int Id { get; private set; }
 
         // Навигация
-        [ForeignKey("UserId")]
         public virtual List<Review> Reviews { get; private set; } = new();
-
-        [ForeignKey("UserId")]
         public virtual List<Comment> Comments { get; private set; } = new();
-
-        [ForeignKey("UserId")]
         public virtual List<PublicationAuthor> AuthoredPublications { get; private set; } = new();
-
-        [ForeignKey("UserId")]
         public virtual List<PublicationFavorite> FavoritePublications { get; private set; } = new();
 
         // Фабрика

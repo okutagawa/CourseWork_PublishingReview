@@ -15,18 +15,19 @@ namespace PublishingReviewDatabase
         {
             if (!optionsBuilder.IsConfigured)
             {
-                // Замените строку подключения на свою при необходимости
-                // Пример для локального SQLEXPRESS:
+                // Берём строку подключения из переменной окружения или используем локальный Postgres по умолчанию
+                // Пример формата: Host=localhost;Port=5432;Database=publishing;Username=dev;Password=pass
                 var connectionString = Environment.GetEnvironmentVariable("PUBLISHING_DB_CONNECTION")
-                                       ?? @"Data Source=.\SQLEXPRESS;Initial Catalog=PublishingReviewDatabase;Integrated Security=True;MultipleActiveResultSets=True;TrustServerCertificate=True";
+                                       ?? "Host=localhost;Port=5432;Database=PublishingReview;Username=postgres;Password=izotov04";
 
-                optionsBuilder.UseSqlServer(connectionString);
+                // Используем Npgsql (PostgreSQL)
+                optionsBuilder.UseNpgsql(connectionString, o => o.SetPostgresVersion(15, 0));
             }
 
             base.OnConfiguring(optionsBuilder);
         }
 
-        // DbSet'ы для моделей (проверь, что имена классов совпадают с теми, что у тебя в Models)
+        // DbSet'ы
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Employee> Employees { get; set; } = null!;
         public DbSet<Publication> Publications { get; set; } = null!;
@@ -108,6 +109,9 @@ namespace PublishingReviewDatabase
                 .WithMany()
                 .HasForeignKey(r => r.ApprovedByEmployeeId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // Если нужно, можно явно указать identity strategy для PostgreSQL:
+            // modelBuilder.Entity<SomeEntity>().Property(e => e.Id).UseIdentityByDefaultColumn();
 
             base.OnModelCreating(modelBuilder);
         }

@@ -36,10 +36,8 @@ namespace PublishingReviewDatabase.Models
         [ForeignKey("UserId")]
         public virtual User User { get; private set; } = null!;
 
-        [ForeignKey("ReviewId")]
         public virtual List<Comment> Comments { get; private set; } = new();
 
-        [ForeignKey("ReviewId")]
         public virtual List<Attachment> Attachments { get; private set; } = new();
 
         [ForeignKey("ApprovedByEmployeeId")]

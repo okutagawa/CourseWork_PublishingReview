@@ -31,13 +31,8 @@ namespace PublishingReviewDatabase.Models
 
         public string? Description { get; private set; }
 
-        [ForeignKey("PublicationId")]
         public virtual List<PublicationAuthor> Authors { get; private set; } = new();
-
-        [ForeignKey("PublicationId")]
         public virtual List<PublicationFavorite> Favorites { get; private set; } = new();
-
-        [ForeignKey("PublicationId")]
         public virtual List<Review> Reviews { get; private set; } = new();
 
         private Dictionary<int, User>? _publicationAuthors = null;

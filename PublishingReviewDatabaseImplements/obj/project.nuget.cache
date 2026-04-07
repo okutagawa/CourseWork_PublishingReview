@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "5Wef95w9Qys=",
+  "dgSpecHash": "zHrsXiNFdFU=",
   "success": true,
   "projectFilePath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
   "expectedPackageFiles": [
@@ -58,7 +58,8 @@
     "C:\\Users\\sasha\\.nuget\\packages\\microsoft.sqlserver.server\\1.0.0\\microsoft.sqlserver.server.1.0.0.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\microsoft.win32.systemevents\\6.0.0\\microsoft.win32.systemevents.6.0.0.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\mono.texttemplating\\3.0.0\\mono.texttemplating.3.0.0.nupkg.sha512",
-    "C:\\Users\\sasha\\.nuget\\packages\\npgsql\\10.0.2\\npgsql.10.0.2.nupkg.sha512",
+    "C:\\Users\\sasha\\.nuget\\packages\\npgsql\\9.0.4\\npgsql.9.0.4.nupkg.sha512",
+    "C:\\Users\\sasha\\.nuget\\packages\\npgsql.entityframeworkcore.postgresql\\9.0.4\\npgsql.entityframeworkcore.postgresql.9.0.4.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\pdfsharp-gdi\\6.2.4\\pdfsharp-gdi.6.2.4.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\pdfsharp-migradoc-gdi\\6.2.4\\pdfsharp-migradoc-gdi.6.2.4.nupkg.sha512",
     "C:\\Users\\sasha\\.nuget\\packages\\system.clientmodel\\1.0.0\\system.clientmodel.1.0.0.nupkg.sha512",
