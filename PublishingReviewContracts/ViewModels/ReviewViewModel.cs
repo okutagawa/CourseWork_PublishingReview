@@ -28,7 +28,7 @@ namespace PublishingReviewContracts.ViewModels
         public DateTime CreatedAt { get; set; }
 
         [DisplayName("Дата одобрения")]
-        public DateTime ConfirmedAt { get; set; }
+        public DateTime? ConfirmedAt { get; set; }
 
         public int PublicationId { get; set; }
 

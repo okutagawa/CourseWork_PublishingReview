@@ -1,4 +1,6 @@
-﻿namespace PublishingReviewDatabase.Models
+﻿using PublishingReviewDatabase.Models;
+
+namespace PublishingReviewDatabaseImplements.Models
 {
     // Явная join-таблица Publication <-> User (Authors)
     public class PublicationAuthor

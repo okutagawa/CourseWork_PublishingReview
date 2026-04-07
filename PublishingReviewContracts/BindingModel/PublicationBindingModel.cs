@@ -22,11 +22,7 @@ namespace PublishingReviewContracts.BindingModel
         public int? SubjectId { get; set; }
         public string SubjectText { get; set; } = string.Empty;
 
-        public Dictionary<int, ReviewerBindingModel> PublicationAuthors
-        {
-            get => PublicationReviewers;
-            set => PublicationReviewers = value ?? new();
-        }
+        public dynamic PublicationAuthors { get; set; } = new Dictionary<int, ReviewerBindingModel>();
 
         // Словарь рецензентов/авторов: ключ — Id пользователя, значение — краткая модель рецензента
         public Dictionary<int, ReviewerBindingModel> PublicationReviewers { get; set; } = new();

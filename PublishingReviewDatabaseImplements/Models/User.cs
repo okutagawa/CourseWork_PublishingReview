@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewDataModels.Enums;
+using PublishingReviewDatabase.Models;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 
-namespace PublishingReviewDatabase.Models
+namespace PublishingReviewDatabaseImplements.Models
 {
     public class User
     {
@@ -17,7 +20,7 @@ namespace PublishingReviewDatabase.Models
         public string Email { get; private set; } = string.Empty;
 
         // Роль: "User", "Employee", "Admin"
-        public string Role { get; private set; } = "User";
+        public UserRole Role { get; private set; } = UserRole.Customer;
 
         public int Id { get; private set; }
 
@@ -41,9 +44,9 @@ namespace PublishingReviewDatabase.Models
             return new User
             {
                 FullName = model.FullName,
-                Login = model.Login,
+                Login = model.Username,
                 Email = model.Email,
-                Role = model.Role ?? "User"
+                Role = model.Role
             };
         }
 
@@ -51,16 +54,16 @@ namespace PublishingReviewDatabase.Models
         {
             if (model == null) return;
             FullName = model.FullName;
-            Login = model.Login;
+            Login = model.Username;
             Email = model.Email;
-            Role = model.Role ?? Role;
+            Role = model.Role;
         }
 
         public UserBindingModel GetUser => new UserBindingModel
         {
             Id = Id,
             FullName = FullName,
-            Login = Login,
+            Username = Login,
             Email = Email,
             Role = Role
         };

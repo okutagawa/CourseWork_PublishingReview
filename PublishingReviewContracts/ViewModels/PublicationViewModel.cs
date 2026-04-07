@@ -21,7 +21,7 @@ namespace PublishingReviewContracts.ViewModels
         public string Publisher { get; set; } = string.Empty;
 
         [DisplayName("Дата публикации")]
-        public DateTime PublishDate { get; set; }
+        public DateTime? PublishDate { get; set; }
 
         [DisplayName("Описание")]
         public string Description { get; set; } = string.Empty;

@@ -82,7 +82,7 @@ namespace PublishingReviewBusinessLogic.BusinessLogics
                 Title = element.Title,
                 Authors = element.Authors,
                 Publisher = element.Publisher,
-                PublishDate = element.PublishDate,
+                PublishDate = element.PublishDate ?? DateTime.UtcNow,
                 Description = element.Description,
                 PublicationReviewers = new Dictionary<int, ReviewerBindingModel>()
             };

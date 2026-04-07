@@ -11,6 +11,6 @@ namespace PublishingReviewBusinessLogic.OfficePack.HelpModels
         public string Title { get; set; } = string.Empty;
         public DateTime DateFrom { get; set; }
         public DateTime DateTo { get; set; }
-        public List<PublicationReportItem> Items { get; set; } = new();
+        public List<PublicationReportItemModel> Items { get; set; } = new();
     }
 }

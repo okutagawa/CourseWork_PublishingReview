@@ -13,7 +13,7 @@ namespace PublishingReviewBusinessLogic.ViewModels
         public string UserName { get; set; } = string.Empty;
 
         public string Content { get; set; } = string.Empty;
-        public int Rating { get; set; }
+        public double Rating { get; set; }
 
         public bool IsApproved { get; set; } = false;
         public int? ApprovedByEmployeeId { get; set; }
