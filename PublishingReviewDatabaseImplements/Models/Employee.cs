@@ -1,4 +1,5 @@
 ﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.ViewModels;
 using System.ComponentModel.DataAnnotations;
 
 namespace PublishingReviewDatabase.Models
@@ -39,7 +40,20 @@ namespace PublishingReviewDatabase.Models
         {
             Id = Id,
             FullName = FullName,
+            Login = string.Empty,
+            Password = string.Empty,
+            Phone = string.Empty,
             Position = Position,
+            Email = Email
+        };
+
+        public EmployeeViewModel GetEmployeeViewModel => new EmployeeViewModel
+        {
+            Id = Id,
+            FullName = FullName,
+            Login = string.Empty,
+            Password = string.Empty,
+            Phone = string.Empty,
             Email = Email
         };
     }

@@ -1,7 +1,9 @@
 ﻿// PublishingReviewDatabase/Implements/EmployeeStorage.cs
 using Microsoft.EntityFrameworkCore;
 using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewContracts.StoragesContracts;
+using PublishingReviewContracts.ViewModels;
 using PublishingReviewDatabase;
 using PublishingReviewDatabase.Models;
 using System.Collections.Generic;
@@ -11,7 +13,7 @@ namespace PublishingReviewDatabaseImplements.Implements
 {
     public class EmployeeStorage : IEmployeeStorage
     {
-        public EmployeeBindingModel? Delete(EmployeeBindingModel model)
+        public EmployeeViewModel? Delete(EmployeeBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -20,37 +22,47 @@ namespace PublishingReviewDatabaseImplements.Implements
             {
                 context.Employees.Remove(element);
                 context.SaveChanges();
-                return element.GetEmployee;
+                return element.GetEmployeeViewModel;
             }
             return null;
         }
 
-        public EmployeeBindingModel? GetElement(EmployeeBindingModel model)
+        public EmployeeViewModel? GetElement(EmployeeSearchModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
             return context.Employees
                 .FirstOrDefault(x => (model.Id != 0 && x.Id == model.Id) || (!string.IsNullOrEmpty(model.Email) && x.Email == model.Email))?
-                .GetEmployee;
+                .GetEmployeeViewModel;
         }
 
-        public List<EmployeeBindingModel> GetFilteredList(EmployeeBindingModel model)
+        public List<EmployeeViewModel> GetFilteredList(EmployeeSearchModel model)
+        {
+            using var context = new PublishingDatabase();
+            var query = context.Employees.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(model.FullName))
+            {
+                query = query.Where(x => x.FullName.Contains(model.FullName));
+            }
+
+            if (!string.IsNullOrWhiteSpace(model.Email))
+            {
+                query = query.Where(x => x.Email.Contains(model.Email));
+            }
+
+            return query.Select(x => x.GetEmployeeViewModel).ToList();
+        }
+
+        public List<EmployeeViewModel> GetFullList()
         {
             using var context = new PublishingDatabase();
             return context.Employees
-                .Select(x => x.GetEmployee)
+                .Select(x => x.GetEmployeeViewModel)
                 .ToList();
         }
 
-        public List<EmployeeBindingModel> GetFullList()
-        {
-            using var context = new PublishingDatabase();
-            return context.Employees
-                .Select(x => x.GetEmployee)
-                .ToList();
-        }
-
-        public EmployeeBindingModel? Insert(EmployeeBindingModel model)
+        public EmployeeViewModel? Insert(EmployeeBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -58,10 +70,10 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (newEmployee == null) return null;
             context.Employees.Add(newEmployee);
             context.SaveChanges();
-            return newEmployee.GetEmployee;
+            return newEmployee.GetEmployeeViewModel;
         }
 
-        public EmployeeBindingModel? Update(EmployeeBindingModel model)
+        public EmployeeViewModel? Update(EmployeeBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -69,7 +81,7 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (elem == null) return null;
             elem.Update(model);
             context.SaveChanges();
-            return elem.GetEmployee;
+            return elem.GetEmployeeViewModel;
         }
     }
 }

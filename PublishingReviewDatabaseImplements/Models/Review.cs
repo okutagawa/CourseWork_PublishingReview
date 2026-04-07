@@ -1,4 +1,7 @@
 ﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.ViewModels;
+using PublishingReviewDataModels.Enums;
+using PublishingReviewDatabaseImplements.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -71,12 +74,26 @@ namespace PublishingReviewDatabase.Models
         public ReviewBindingModel GetReview => new ReviewBindingModel
         {
             Id = Id,
+            Title = string.Empty,
             PublicationId = PublicationId,
-            UserId = UserId,
+            ReviewerId = UserId,
             Content = Content,
             Rating = Rating,
-            IsApproved = IsApproved,
-            ApprovedByEmployeeId = ApprovedByEmployeeId,
+            Status = IsApproved ? ReviewStatus.Confirmed : ReviewStatus.Pending,
+            ConfirmedById = ApprovedByEmployeeId,
+            CreatedAt = CreatedAt
+        };
+
+        public ReviewViewModel GetReviewViewModel => new ReviewViewModel
+        {
+            Id = Id,
+            Title = string.Empty,
+            PublicationId = PublicationId,
+            ReviewerId = UserId,
+            Content = Content,
+            Rating = Rating,
+            Status = IsApproved ? ReviewStatus.Confirmed : ReviewStatus.Pending,
+            ConfirmedById = ApprovedByEmployeeId ?? 0,
             CreatedAt = CreatedAt
         };
     }

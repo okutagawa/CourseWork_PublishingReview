@@ -1,4 +1,5 @@
 ﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.ViewModels;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -34,7 +35,7 @@ namespace PublishingReviewDatabase.Models
                 ReviewId = model.ReviewId,
                 FileName = model.FileName,
                 SizeBytes = model.SizeBytes,
-                UploadedAt = model.UploadedAt ?? DateTime.UtcNow,
+                UploadedAt = model.UploadedAt,
                 MimeType = model.MimeType,
                 StoragePath = model.StoragePath
             };
@@ -55,10 +56,20 @@ namespace PublishingReviewDatabase.Models
             Id = Id,
             ReviewId = ReviewId,
             FileName = FileName,
+            FileData = new byte[0],
             SizeBytes = SizeBytes,
             UploadedAt = UploadedAt,
-            MimeType = MimeType,
-            StoragePath = StoragePath
+            MimeType = MimeType ?? string.Empty,
+            StoragePath = StoragePath ?? string.Empty
+        };
+
+        public AttachmentViewModel GetAttachmentViewModel => new AttachmentViewModel
+        {
+            Id = Id,
+            ReviewId = ReviewId,
+            FileName = FileName,
+            FileData = new byte[0],
+            UploadedAt = UploadedAt
         };
     }
 }

@@ -1,4 +1,5 @@
 ﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.ViewModels;
 using PublishingReviewDatabaseImplements.Models;
 using System;
 using System.Collections.Generic;
@@ -129,14 +130,25 @@ namespace PublishingReviewDatabase.Models
         {
             Id = Id,
             Title = Title,
+            PublishDate = PublishDate,
+            Authors = AuthorsText,
+            Publisher = SubjectText,
+            Description = Description,
             SubjectId = SubjectId,
             SubjectText = SubjectText,
-            PublishDate = PublishDate,
             Volume = Volume,
             AuthorsText = AuthorsText,
             ResourcesRate = ResourcesRate,
-            Description = Description,
             PublicationAuthors = PublicationAuthors
+        };
+        public PublicationViewModel GetPublicationViewModel => new PublicationViewModel
+        {
+            Id = Id,
+            Title = Title,
+            PublishDate = PublishDate,
+            Authors = AuthorsText,
+            Publisher = SubjectText,
+            Description = Description ?? string.Empty
         };
     }
 }

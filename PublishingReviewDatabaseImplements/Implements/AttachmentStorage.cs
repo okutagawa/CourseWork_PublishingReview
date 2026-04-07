@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewContracts.StoragesContracts;
+using PublishingReviewContracts.ViewModels;
 using PublishingReviewDatabase;
 using PublishingReviewDatabase.Models;
 using System.Collections.Generic;
@@ -10,7 +12,7 @@ namespace PublishingReviewDatabaseImplements.Implements
 {
     public class AttachmentStorage : IAttachmentStorage
     {
-        public AttachmentBindingModel? Delete(AttachmentBindingModel model)
+        public AttachmentViewModel? Delete(AttachmentBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -19,44 +21,46 @@ namespace PublishingReviewDatabaseImplements.Implements
             {
                 context.Attachments.Remove(element);
                 context.SaveChanges();
-                return element.GetAttachment;
+                return element.GetAttachmentViewModel;
             }
             return null;
         }
 
-        public AttachmentBindingModel? GetElement(AttachmentBindingModel model)
+        public AttachmentViewModel? GetElement(AttachmentSearchModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
             return context.Attachments
                 .Include(a => a.Review)
-                .FirstOrDefault(a => (model.Id != 0 && a.Id == model.Id))?
-                .GetAttachment;
+                .FirstOrDefault(a => model.Id.HasValue && a.Id == model.Id.Value)?
+                .GetAttachmentViewModel;
         }
 
-        public List<AttachmentBindingModel> GetFilteredList(AttachmentBindingModel model)
+        public List<AttachmentViewModel> GetFilteredList(AttachmentSearchModel model)
         {
             using var context = new PublishingDatabase();
             var query = context.Attachments
                 .Include(a => a.Review)
                 .AsQueryable();
 
-            if (model.ReviewId != 0)
-                query = query.Where(a => a.ReviewId == model.ReviewId);
+            if (model.ReviewId.HasValue)
+            {
+                query = query.Where(a => a.ReviewId == model.ReviewId.Value);
+            }
 
-            return query.Select(a => a.GetAttachment).ToList();
+            return query.Select(a => a.GetAttachmentViewModel).ToList();
         }
 
-        public List<AttachmentBindingModel> GetFullList()
+        public List<AttachmentViewModel> GetFullList()
         {
             using var context = new PublishingDatabase();
             return context.Attachments
                 .Include(a => a.Review)
-                .Select(a => a.GetAttachment)
+                .Select(a => a.GetAttachmentViewModel)
                 .ToList();
         }
 
-        public AttachmentBindingModel? Insert(AttachmentBindingModel model)
+        public AttachmentViewModel? Insert(AttachmentBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -64,10 +68,10 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (entity == null) return null;
             context.Attachments.Add(entity);
             context.SaveChanges();
-            return entity.GetAttachment;
+            return entity.GetAttachmentViewModel;
         }
 
-        public AttachmentBindingModel? Update(AttachmentBindingModel model)
+        public AttachmentViewModel? Update(AttachmentBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -75,7 +79,7 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (elem == null) return null;
             elem.Update(model);
             context.SaveChanges();
-            return elem.GetAttachment;
+            return elem.GetAttachmentViewModel;
         }
     }
 }

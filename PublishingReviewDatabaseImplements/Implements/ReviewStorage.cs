@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewContracts.StoragesContracts;
+using PublishingReviewContracts.ViewModels;
 using PublishingReviewDatabase;
 using PublishingReviewDatabase.Models;
 using System.Collections.Generic;
@@ -10,7 +12,7 @@ namespace PublishingReviewDatabaseImplements.Implements
 {
     public class ReviewStorage : IReviewStorage
     {
-        public ReviewBindingModel? Delete(ReviewBindingModel model)
+        public ReviewViewModel? Delete(ReviewBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -19,12 +21,12 @@ namespace PublishingReviewDatabaseImplements.Implements
             {
                 context.Reviews.Remove(element);
                 context.SaveChanges();
-                return element.GetReview;
+                return element.GetReviewViewModel;
             }
             return null;
         }
 
-        public ReviewBindingModel? GetElement(ReviewBindingModel model)
+        public ReviewViewModel? GetElement(ReviewSearchModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -33,11 +35,11 @@ namespace PublishingReviewDatabaseImplements.Implements
                 .Include(r => r.User)
                 .Include(r => r.Comments)
                 .Include(r => r.Attachments)
-                .FirstOrDefault(r => (model.Id != 0 && r.Id == model.Id))?
-                .GetReview;
+                .FirstOrDefault(r => (model.Id.HasValue && r.Id == model.Id.Value))?
+                .GetReviewViewModel;
         }
 
-        public List<ReviewBindingModel> GetFilteredList(ReviewBindingModel model)
+        public List<ReviewViewModel> GetFilteredList(ReviewSearchModel model)
         {
             using var context = new PublishingDatabase();
             var query = context.Reviews
@@ -45,13 +47,14 @@ namespace PublishingReviewDatabaseImplements.Implements
                 .Include(r => r.User)
                 .AsQueryable();
 
-            if (model.PublicationId != 0)
-                query = query.Where(r => r.PublicationId == model.PublicationId);
-
-            return query.Select(r => r.GetReview).ToList();
+            if (model.PublicationId.HasValue)
+            {
+                query = query.Where(r => r.PublicationId == model.PublicationId.Value);
+            }
+            return query.Select(r => r.GetReviewViewModel).ToList();
         }
 
-        public List<ReviewBindingModel> GetFullList()
+        public List<ReviewViewModel> GetFullList()
         {
             using var context = new PublishingDatabase();
             return context.Reviews
@@ -59,11 +62,11 @@ namespace PublishingReviewDatabaseImplements.Implements
                 .Include(r => r.User)
                 .Include(r => r.Comments)
                 .Include(r => r.Attachments)
-                .Select(r => r.GetReview)
+                .Select(r => r.GetReviewViewModel)
                 .ToList();
         }
 
-        public ReviewBindingModel? Insert(ReviewBindingModel model)
+        public ReviewViewModel? Insert(ReviewBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -71,10 +74,10 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (entity == null) return null;
             context.Reviews.Add(entity);
             context.SaveChanges();
-            return entity.GetReview;
+            return entity.GetReviewViewModel;
         }
 
-        public ReviewBindingModel? Update(ReviewBindingModel model)
+        public ReviewViewModel? Update(ReviewBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -82,7 +85,7 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (elem == null) return null;
             elem.Update(model);
             context.SaveChanges();
-            return elem.GetReview;
+            return elem.GetReviewViewModel;
         }
     }
 }

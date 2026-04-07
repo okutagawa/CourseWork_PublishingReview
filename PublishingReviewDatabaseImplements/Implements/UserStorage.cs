@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using PublishingReviewContracts.BindingModel;
+﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewContracts.StoragesContracts;
+using PublishingReviewContracts.ViewModels;
 using PublishingReviewDatabase;
 using PublishingReviewDatabaseImplements.Models;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ namespace PublishingReviewDatabaseImplements.Implements
 {
     public class UserStorage : IUserStorage
     {
-        public UserBindingModel? Delete(UserBindingModel model)
+        public UserViewModel? Delete(UserBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -19,45 +20,47 @@ namespace PublishingReviewDatabaseImplements.Implements
             {
                 context.Users.Remove(element);
                 context.SaveChanges();
-                return element.GetUser;
+                return element.GetUserViewModel;
             }
             return null;
         }
 
-        public UserBindingModel? GetElement(UserBindingModel model)
+        public UserViewModel? GetElement(UserSearchModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
-            return context.Users
-                .Include(x => x.AuthoredPublications).ThenInclude(pa => pa.Publication)
-                .Include(x => x.Reviews)
-                .Include(x => x.Comments)
+            return context.Users               
                 .FirstOrDefault(x => (model.Id != 0 && x.Id == model.Id) || (!string.IsNullOrEmpty(model.Email) && x.Email == model.Email))?
-                .GetUser;
+                .GetUserViewModel;
         }
 
-        public List<UserBindingModel> GetFilteredList(UserBindingModel model)
+        public List<UserViewModel> GetFilteredList(UserSearchModel model)
         {
             using var context = new PublishingDatabase();
-            return context.Users
-                .Include(x => x.Reviews)
-                .Include(x => x.AuthoredPublications)
-                .Select(x => x.GetUser)
+            var query = context.Users.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(model.Username))
+            {
+                query = query.Where(x => x.Login.Contains(model.Username));
+            }
+
+            if (!string.IsNullOrWhiteSpace(model.Email))
+            {
+                query = query.Where(x => x.Email.Contains(model.Email));
+            }
+
+            return query.Select(x => x.GetUserViewModel).ToList();
+        }
+
+        public List<UserViewModel> GetFullList()
+        {
+            using var context = new PublishingDatabase();
+            return context.Users             
+                .Select(x => x.GetUserViewModel)
                 .ToList();
         }
 
-        public List<UserBindingModel> GetFullList()
-        {
-            using var context = new PublishingDatabase();
-            return context.Users
-                .Include(x => x.Reviews)
-                .Include(x => x.AuthoredPublications)
-                .Include(x => x.FavoritePublications)
-                .Select(x => x.GetUser)
-                .ToList();
-        }
-
-        public UserBindingModel? Insert(UserBindingModel model)
+        public UserViewModel? Insert(UserBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -65,10 +68,10 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (newUser == null) return null;
             context.Users.Add(newUser);
             context.SaveChanges();
-            return newUser.GetUser;
+            return newUser.GetUserViewModel;
         }
 
-        public UserBindingModel? Update(UserBindingModel model)
+        public UserViewModel? Update(UserBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -76,7 +79,7 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (elem == null) return null;
             elem.Update(model);
             context.SaveChanges();
-            return elem.GetUser;
+            return elem.GetUserViewModel;
         }
     }
 }

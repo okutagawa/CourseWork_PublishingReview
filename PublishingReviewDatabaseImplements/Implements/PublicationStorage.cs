@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.SearchModels;
 using PublishingReviewContracts.StoragesContracts;
+using PublishingReviewContracts.ViewModels;
 using PublishingReviewDatabase;
 using PublishingReviewDatabase.Models;
 using System.Collections.Generic;
@@ -10,7 +12,7 @@ namespace PublishingReviewDatabaseImplements.Implements
 {
     public class PublicationStorage : IPublicationStorage
     {
-        public PublicationBindingModel? Delete(PublicationBindingModel model)
+        public PublicationViewModel? Delete(PublicationBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -19,12 +21,12 @@ namespace PublishingReviewDatabaseImplements.Implements
             {
                 context.Publications.Remove(element);
                 context.SaveChanges();
-                return element.GetPublication;
+                return element.GetPublicationViewModel;
             }
             return null;
         }
 
-        public PublicationBindingModel? GetElement(PublicationBindingModel model)
+        public PublicationViewModel? GetElement(PublicationSearchModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -33,10 +35,10 @@ namespace PublishingReviewDatabaseImplements.Implements
                 .Include(x => x.Reviews)
                 .Include(x => x.Favorites)
                 .FirstOrDefault(x => (model.Id != 0 && x.Id == model.Id) || (!string.IsNullOrEmpty(model.Title) && x.Title == model.Title))?
-                .GetPublication;
+                .GetPublicationViewModel;
         }
 
-        public List<PublicationBindingModel> GetFilteredList(PublicationBindingModel model)
+        public List<PublicationViewModel> GetFilteredList(PublicationSearchModel model)
         {
             using var context = new PublishingDatabase();
             var query = context.Publications
@@ -45,23 +47,25 @@ namespace PublishingReviewDatabaseImplements.Implements
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(model.Title))
+            {
                 query = query.Where(x => x.Title.Contains(model.Title));
+            }
 
-            return query.Select(x => x.GetPublication).ToList();
+            return query.Select(x => x.GetPublicationViewModel).ToList();
         }
 
-        public List<PublicationBindingModel> GetFullList()
+        public List<PublicationViewModel> GetFullList()
         {
             using var context = new PublishingDatabase();
             return context.Publications
                 .Include(x => x.Authors).ThenInclude(pa => pa.User)
                 .Include(x => x.Reviews)
                 .Include(x => x.Favorites)
-                .Select(x => x.GetPublication)
+                .Select(x => x.GetPublicationViewModel)
                 .ToList();
         }
 
-        public PublicationBindingModel? Insert(PublicationBindingModel model)
+        public PublicationViewModel? Insert(PublicationBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -69,10 +73,10 @@ namespace PublishingReviewDatabaseImplements.Implements
             if (newPublication == null) return null;
             context.Publications.Add(newPublication);
             context.SaveChanges();
-            return newPublication.GetPublication;
+            return newPublication.GetPublicationViewModel;
         }
 
-        public PublicationBindingModel? Update(PublicationBindingModel model)
+        public PublicationViewModel? Update(PublicationBindingModel model)
         {
             if (model == null) return null;
             using var context = new PublishingDatabase();
@@ -86,10 +90,12 @@ namespace PublishingReviewDatabaseImplements.Implements
                 context.SaveChanges();
 
                 if (model.PublicationAuthors != null && model.PublicationAuthors.Count > 0)
+                {
                     elem.UpdateAuthors(context, model);
+                }
 
                 transaction.Commit();
-                return elem.GetPublication;
+                return elem.GetPublicationViewModel;
             }
             catch
             {

@@ -1,4 +1,5 @@
 ﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.ViewModels;
 using PublishingReviewDataModels.Enums;
 using PublishingReviewDatabase.Models;
 using System.Collections.Generic;
@@ -66,6 +67,15 @@ namespace PublishingReviewDatabaseImplements.Models
             Username = Login,
             Email = Email,
             Role = Role
+        };
+        public UserViewModel GetUserViewModel => new UserViewModel
+        {
+            Id = Id,
+            FullName = FullName,
+            Username = Login,
+            Email = Email,
+            Role = Role,
+            Password = string.Empty
         };
     }
 }

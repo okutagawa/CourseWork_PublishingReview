@@ -1,4 +1,6 @@
 ﻿using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.ViewModels;
+using PublishingReviewDatabaseImplements.Models;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -34,7 +36,7 @@ namespace PublishingReviewDatabase.Models
                 ReviewId = model.ReviewId,
                 UserId = model.UserId,
                 Content = model.Content,
-                CreatedAt = model.CreatedAt ?? DateTime.UtcNow
+                CreatedAt = model.CreatedAt
             };
         }
 
@@ -50,7 +52,16 @@ namespace PublishingReviewDatabase.Models
         {
             Id = Id,
             ReviewId = ReviewId,
-            UserId = UserId,
+            AuthorId = UserId,
+            Content = Content,
+            CreatedAt = CreatedAt
+        };
+
+        public CommentViewModel GetCommentViewModel => new CommentViewModel
+        {
+            Id = Id,
+            ReviewId = ReviewId,
+            AuthorId = UserId,
             Content = Content,
             CreatedAt = CreatedAt
         };
