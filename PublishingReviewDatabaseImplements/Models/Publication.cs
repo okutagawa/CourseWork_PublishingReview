@@ -130,7 +130,7 @@ namespace PublishingReviewDatabase.Models
         {
             Id = Id,
             Title = Title,
-            PublishDate = PublishDate,
+            PublishDate = PublishDate ?? DateTime.UtcNow,
             Authors = AuthorsText,
             Publisher = SubjectText,
             Description = Description,
@@ -139,7 +139,12 @@ namespace PublishingReviewDatabase.Models
             Volume = Volume,
             AuthorsText = AuthorsText,
             ResourcesRate = ResourcesRate,
-            PublicationAuthors = PublicationAuthors
+            PublicationAuthors = PublicationAuthors?.ToDictionary(
+                x => x.Key,
+                x => new ReviewerBindingModel
+                {
+                    Id = x.Value.Id
+                }) ?? new Dictionary<int, ReviewerBindingModel>()
         };
         public PublicationViewModel GetPublicationViewModel => new PublicationViewModel
         {

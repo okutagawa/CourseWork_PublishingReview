@@ -53,10 +53,10 @@ namespace PublishingReviewDatabase.Models
                 PublicationId = model.PublicationId,
                 UserId = model.UserId,
                 Content = model.Content,
-                Rating = model.Rating,
+                Rating = Convert.ToInt32(model.Rating),
                 IsApproved = model.IsApproved,
                 ApprovedByEmployeeId = model.ApprovedByEmployeeId,
-                CreatedAt = model.CreatedAt ?? DateTime.UtcNow
+                CreatedAt = model.CreatedAt
             };
         }
 
@@ -66,7 +66,7 @@ namespace PublishingReviewDatabase.Models
             PublicationId = model.PublicationId;
             UserId = model.UserId;
             Content = model.Content;
-            Rating = model.Rating;
+            Rating = Convert.ToInt32(model.Rating);
             IsApproved = model.IsApproved;
             ApprovedByEmployeeId = model.ApprovedByEmployeeId;
         }
