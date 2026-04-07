@@ -1,5 +1,6 @@
 ﻿using PublishingReviewContracts.BindingModel;
 using PublishingReviewContracts.SearchModels;
+using PublishingReviewContracts.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
