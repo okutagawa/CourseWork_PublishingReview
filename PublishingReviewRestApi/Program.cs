@@ -21,15 +21,12 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? Environment.GetEnvironmentVariable("PUBLISHING_DB_CONNECTION");
 
 // --- Регистрация DbContext делаем опциональной: если connectionString пустой — пропускаем регистрацию БД
-builder.Services.AddDbContext<PublishingDatabase>(options =>
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    if (!string.IsNullOrWhiteSpace(connectionString))
-    {
-        options.UseNpgsql(connectionString);
-    }
-});
+    throw new InvalidOperationException("Database connection string is not configured. Set ConnectionStrings:Default or PUBLISHING_DB_CONNECTION.");
+}
 builder.Services.AddDbContext<PublishingDatabase>(options =>
-options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString));
 
 // Регистрация storage/logic, которые зависят от DbContext
 builder.Services.AddScoped<IUserStorage, UserStorage>();
@@ -46,7 +43,7 @@ builder.Services.AddScoped<ICommentLogic, CommentLogic>();
 builder.Services.AddScoped<IAttachmentLogic, AttachmentLogic>();
 builder.Services.AddScoped<IEmployeeLogic, EmployeeLogic>();
 
-builder.Services.AddScoped<IPasswordHasher<UserBindingModel>, PasswordHasher<UserBindingModel>>();
+builder.Services.AddScoped(typeof(IPasswordHasher<>), typeof(PasswordHasher<>));
 
 // NoOpMailLogic можно зарегистрировать всегда (чтобы не требовать почту)
 builder.Services.AddControllers();
