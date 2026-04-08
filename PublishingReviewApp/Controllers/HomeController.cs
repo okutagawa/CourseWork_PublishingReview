@@ -418,7 +418,7 @@ public class HomeController : Controller
             Authors = request.AuthorFullName.Trim(),
             Publisher = request.PublicationType.Trim(),
             PublishDate = DateTime.UtcNow,
-            Description = request.EditorComment?.Trim() ?? "Новая запись",
+            Description = "Без итоговой рецензии",
             Volume = 1,
             SubjectText = request.PublicationType.Trim()
         });
@@ -476,7 +476,7 @@ public class HomeController : Controller
             Authors = request.AuthorFullName.Trim(),
             Publisher = request.PublicationType.Trim(),
             PublishDate = publication.PublishDate ?? DateTime.UtcNow,
-            Description = string.IsNullOrWhiteSpace(request.ReviewSummary) ? "Без итоговой рецензии" : request.ReviewSummary.Trim(),
+            Description = publication.Description ?? "Без итоговой рецензии",
             Volume = 1,
             SubjectText = request.PublicationType.Trim()
         });
@@ -490,7 +490,7 @@ public class HomeController : Controller
             Title = request.Title.Trim(),
             AuthorFullName = request.AuthorFullName.Trim(),
             PublicationType = request.PublicationType.Trim(),
-            ReviewSummary = string.IsNullOrWhiteSpace(request.ReviewSummary) ? "Без итоговой рецензии" : request.ReviewSummary.Trim()
+            ReviewSummary = publication.Description ?? "Без итоговой рецензии"
         });
     }
 
@@ -1139,6 +1139,35 @@ public class HomeController : Controller
 
         var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = review.PublicationId });
         var user = _userLogic.ReadElement(new UserSearchModel { Id = review.ReviewerId });
+
+        if (publication is not null)
+        {
+            var automaticSummary = request.Decision switch
+            {
+                ReviewWorkflowState.Approved => "Одобрено",
+                ReviewWorkflowState.RequiresRevision => "Требует доработки",
+                ReviewWorkflowState.Rejected => "Отклонено",
+                _ => "Без итоговой рецензии"
+            };
+
+            if (!string.IsNullOrWhiteSpace(request.Comment))
+            {
+                automaticSummary = $"{automaticSummary}: {request.Comment.Trim()}";
+            }
+
+            _publicationLogic.Update(new PublicationBindingModel
+            {
+                Id = publication.Id,
+                Title = publication.Title,
+                Authors = publication.Authors,
+                Publisher = publication.Publisher,
+                PublishDate = publication.PublishDate ?? DateTime.UtcNow,
+                Description = automaticSummary,
+                Volume = publication.Volume,
+                SubjectText = publication.SubjectText
+            });
+        }
+
         var response = new ReviewTaskModel(
             review.Id,
             review.PublicationId,
