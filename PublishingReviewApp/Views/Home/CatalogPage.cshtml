@@ -32,9 +32,21 @@
 }
 
 <table class="table table-striped">
-    <thead><tr><th>ID</th><th>Название</th><th>Автор</th><th>Тип</th><th>Рецензия</th><th></th></tr></thead>
+    <thead><tr><th>ID</th><th>Название</th><th>Автор</th><th>Тип</th><th>Итог</th><th>Рецензий</th><th>Действия</th></tr></thead>
     <tbody id="catalogBody"></tbody>
 </table>
+
+<div class="modal fade" id="publicationReviewsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="publicationReviewsTitle">Рецензии по изданию</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body" id="publicationReviewsBody"></div>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <script>
@@ -56,10 +68,60 @@
             const body = document.getElementById('catalogBody');
             body.innerHTML = '';
             data.forEach(item => {
-                const action = isEmployee
-                    ? `<span class='text-muted'>CRUD через форму выше</span>`
-                    : `<button class='btn btn-sm ${item.isFavorite ? 'btn-warning' : 'btn-outline-warning'}' onclick='toggleFavorite(${item.id})'>${item.isFavorite ? '★ В избранном' : '☆ В избранное'}</button>`;
-                body.innerHTML += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.reviewSummary}</td><td>${action}</td></tr>`;
+                const employeeHint = "<span class='text-muted'>CRUD через форму выше</span>";
+                const favoriteButton = `<button class='btn btn-sm ${item.isFavorite ? 'btn-warning' : 'btn-outline-warning'}' onclick='toggleFavorite(${item.id})'>${item.isFavorite ? '★ В избранном' : '☆ В избранное'}</button>`;
+                const actions = `${isEmployee ? employeeHint : favoriteButton} <button class='btn btn-sm btn-outline-primary' onclick='showPublicationReviews(${item.id}, "${item.title.replace(/"/g, '&quot;')}")'>Рецензии</button>`;
+                body.innerHTML += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.reviewSummary}</td><td>${item.reviewCount}</td><td>${actions}</td></tr>`;
+            });
+        }
+
+        async function showPublicationReviews(publicationId, title) {
+            const response = await fetch(`/Home/PublicationReviewList/${publicationId}`);
+            if (!response.ok) return alert(await response.text());
+            const reviews = await response.json();
+            document.getElementById('publicationReviewsTitle').textContent = `Рецензии: ${title}`;
+            const body = document.getElementById('publicationReviewsBody');
+            if (!reviews.length) {
+                body.innerHTML = "<p class='text-muted mb-0'>Пока нет рецензий по этому изданию.</p>";
+            } else {
+                body.innerHTML = reviews.map(item => {
+                    const comments = item.comments.length
+                        ? item.comments.map(comment => `<li><b>${comment.authorName}</b>: ${comment.text}</li>`).join('')
+                        : "<li class='text-muted'>Комментариев пока нет</li>";
+                    return `<div class="card p-3 mb-3">
+                        <div class="d-flex justify-content-between">
+                            <h6 class="mb-1">Рецензия #${item.id}</h6>
+                            <small>${new Date(item.createdUtc).toLocaleString()}</small>
+                        </div>
+                        <div><b>Автор рецензии:</b> ${item.userEmail}</div>
+                        <p class="mt-2 mb-2">${item.reviewText}</p>
+                        <div><b>Файл:</b> ${item.attachmentFileName ?? "—"}</div>
+                        <div class="mt-2">
+                            <b>Комментарии:</b>
+                            <ul>${comments}</ul>
+                            <div class='d-flex gap-2'>
+                                <input id='catalog-comment-${item.id}' class='form-control form-control-sm' placeholder='Комментарий к рецензии' />
+                                <button class='btn btn-sm btn-outline-secondary' onclick='addCatalogComment(${item.id})'>Отправить</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('publicationReviewsModal'));
+            modal.show();
+        }
+
+        async function addCatalogComment(reviewId) {
+            const input = document.getElementById(`catalog-comment-${reviewId}`);
+            if (!input?.value) return;
+            const response = await fetch('/Home/AddComment', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reviewId, text: input.value })
+            });
+            if (!response.ok) return alert(await response.text());
+            input.value = '';
+            loadCatalog();
             });
         }
 

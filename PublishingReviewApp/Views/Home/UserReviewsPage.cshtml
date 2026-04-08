@@ -2,12 +2,16 @@
     ViewData["Title"] = "Мои рецензии";
 }
 
-<h2>Мои рецензии (CRUD + вложение + комментарии)</h2>
+<h2>Мои рецензии</h2>
 
 <div class="card p-3 mb-3">
     <div class="row g-2">
         <div class="col-md-2"><input id="reviewId" type="number" class="form-control" placeholder="ID (для ред.)" /></div>
-        <div class="col-md-4"><input id="publicationTitle" class="form-control" placeholder="Название издания" /></div>
+        <div class="col-md-4">
+            <select id="publicationId" class="form-select">
+                <option value="">Выберите издание из каталога</option>
+            </select>
+        </div>
         <div class="col-md-3"><input id="attachmentFile" type="file" class="form-control" /></div>
         <div class="col-md-3"><button class="btn btn-success w-100" onclick="createReview()">Создать</button></div>
     </div>
@@ -25,6 +29,17 @@
 
 @section Scripts {
     <script>
+
+        async function loadPublicationOptions() {
+            const response = await fetch('/Home/GetCatalog');
+            if (!response.ok) return;
+            const data = await response.json();
+            const select = document.getElementById('publicationId');
+            data.forEach(item => {
+                select.innerHTML += `<option value="${item.id}">${item.title} (${item.authorFullName})</option>`;
+            });
+        }
+
         function getAttachmentName() {
             const input = document.getElementById('attachmentFile');
             return input.files.length ? input.files[0].name : null;
@@ -57,7 +72,7 @@
 
         async function createReview() {
             const payload = {
-                publicationTitle: document.getElementById('publicationTitle').value,
+                publicationId: Number(document.getElementById('publicationId').value),
                 reviewText: document.getElementById('reviewText').value,
                 attachmentFileName: getAttachmentName()
             };
@@ -71,7 +86,7 @@
         async function updateReview() {
             const payload = {
                 id: Number(document.getElementById('reviewId').value),
-                publicationTitle: document.getElementById('publicationTitle').value,
+                publicationId: Number(document.getElementById('publicationId').value),
                 reviewText: document.getElementById('reviewText').value,
                 attachmentFileName: getAttachmentName()
             };
@@ -100,6 +115,9 @@
             loadReviews();
         }
 
-        document.addEventListener('DOMContentLoaded', loadReviews);
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPublicationOptions();
+            await loadReviews();
+        });
     </script>
 }

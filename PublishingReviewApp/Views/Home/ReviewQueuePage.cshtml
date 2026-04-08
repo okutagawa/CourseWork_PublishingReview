@@ -20,6 +20,37 @@
     </div>
 </div>
 
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="card p-3">
+            <h5>Назначение рецензента</h5>
+            <div class="row g-2">
+                <div class="col-md-4"><input id="assignTaskId" type="number" class="form-control" placeholder="ID задачи" /></div>
+                <div class="col-md-5"><input id="assignReviewerEmail" type="email" class="form-control" placeholder="Email рецензента" /></div>
+                <div class="col-md-3"><input id="assignDeadlineUtc" type="date" class="form-control" /></div>
+            </div>
+            <button class="btn btn-secondary mt-2" onclick="assignReviewer()">Назначить</button>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card p-3">
+            <h5>Решение по рецензии</h5>
+            <div class="row g-2">
+                <div class="col-md-4"><input id="decisionTaskId" type="number" class="form-control" placeholder="ID задачи" /></div>
+                <div class="col-md-4">
+                    <select id="decisionState" class="form-select">
+                        <option value="Approved">Одобрить</option>
+                        <option value="RequiresRevision">На доработку</option>
+                        <option value="Rejected">Отклонить</option>
+                    </select>
+                </div>
+                <div class="col-md-4"><input id="decisionComment" class="form-control" placeholder="Комментарий редактора" /></div>
+            </div>
+            <button class="btn btn-secondary mt-2" onclick="submitDecision()">Сохранить</button>
+        </div>
+    </div>
+</div>
+
 <table class="table table-striped">
     <thead>
         <tr>
@@ -46,6 +77,32 @@
             data.forEach(item => {
                 body.innerHTML += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.state}</td><td>${item.reviewerEmail ?? '—'}</td><td>${item.deadlineUtc ? new Date(item.deadlineUtc).toLocaleDateString() : '—'}</td></tr>`;
             });
+        }
+
+                async function assignReviewer() {
+            const payload = {
+                taskId: Number(document.getElementById('assignTaskId').value),
+                reviewerEmail: document.getElementById('assignReviewerEmail').value,
+                deadlineUtc: document.getElementById('assignDeadlineUtc').value || null
+            };
+            const response = await fetch('/Home/AssignReviewer', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (!response.ok) return alert(await response.text());
+            loadQueue();
+        }
+
+        async function submitDecision() {
+            const payload = {
+                taskId: Number(document.getElementById('decisionTaskId').value),
+                decision: document.getElementById('decisionState').value,
+                comment: document.getElementById('decisionComment').value
+            };
+            const response = await fetch('/Home/SubmitReviewResult', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (!response.ok) return alert(await response.text());
+            loadQueue();
         }
         document.addEventListener('DOMContentLoaded', loadQueue);
     </script>

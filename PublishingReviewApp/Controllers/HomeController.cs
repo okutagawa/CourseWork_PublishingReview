@@ -231,7 +231,7 @@ public class HomeController : Controller
             return forbiddenResult;
         }
 
-        return View();
+        return View("FavoritePage");
     }
 
     [HttpGet]
@@ -396,7 +396,8 @@ public class HomeController : Controller
                 x.AuthorFullName,
                 x.PublicationType,
                 x.ReviewSummary,
-                IsFavorite = favoriteIds.Contains(x.Id)
+                IsFavorite = favoriteIds.Contains(x.Id),
+                ReviewCount = UserReviews.Count(r => r.PublicationId == x.Id)
             }));
         }
     }
@@ -576,6 +577,43 @@ public class HomeController : Controller
         }
     }
 
+    [HttpGet("{publicationId:int}")]
+    public IActionResult PublicationReviewList(int publicationId)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        lock (SyncRoot)
+        {
+            if (!Publications.Any(x => x.Id == publicationId))
+            {
+                return NotFound("Издание не найдено.");
+            }
+
+            var data = UserReviews
+                .Where(x => x.PublicationId == publicationId)
+                .OrderByDescending(x => x.CreatedUtc)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.PublicationId,
+                    x.PublicationTitle,
+                    x.ReviewText,
+                    x.AttachmentFileName,
+                    x.CreatedUtc,
+                    x.UserEmail,
+                    Comments = Comments.Where(c => c.ReviewId == x.Id)
+                        .OrderByDescending(c => c.CreatedUtc)
+                        .ToList()
+                })
+                .ToList();
+
+            return Ok(data);
+        }
+    }
+
     [HttpPost]
     public IActionResult CreateUserReview([FromBody] UserReviewUpsertModel request)
     {
@@ -589,16 +627,22 @@ public class HomeController : Controller
             return forbiddenResult;
         }
 
-        if (string.IsNullOrWhiteSpace(request.PublicationTitle) || string.IsNullOrWhiteSpace(request.ReviewText))
+        if (request.PublicationId <= 0 || string.IsNullOrWhiteSpace(request.ReviewText))
         {
-            return BadRequest("PublicationTitle и ReviewText обязательны.");
+            return BadRequest("PublicationId и ReviewText обязательны.");
         }
 
         var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
         lock (SyncRoot)
         {
+            var publication = Publications.FirstOrDefault(x => x.Id == request.PublicationId);
+            if (publication is null)
+            {
+                return NotFound("Издание не найдено.");
+            }
+
             var nextId = UserReviews.Count == 0 ? 1 : UserReviews.Max(x => x.Id) + 1;
-            var review = new UserReviewRecordModel(nextId, currentUserEmail, request.PublicationTitle.Trim(), request.ReviewText.Trim(), request.AttachmentFileName?.Trim(), DateTime.UtcNow);
+            var review = new UserReviewRecordModel(nextId, currentUserEmail, publication.Id, publication.Title, request.ReviewText.Trim(), request.AttachmentFileName?.Trim(), DateTime.UtcNow);
             UserReviews.Add(review);
             return Ok(review);
         }
@@ -617,14 +661,20 @@ public class HomeController : Controller
             return forbiddenResult;
         }
 
-        if (request.Id <= 0 || string.IsNullOrWhiteSpace(request.PublicationTitle) || string.IsNullOrWhiteSpace(request.ReviewText))
+        if (request.Id <= 0 || request.PublicationId <= 0 || string.IsNullOrWhiteSpace(request.ReviewText))
         {
-            return BadRequest("Id, PublicationTitle и ReviewText обязательны.");
+            return BadRequest("Id, PublicationId и ReviewText обязательны.");
         }
 
         var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
         lock (SyncRoot)
         {
+            var publication = Publications.FirstOrDefault(x => x.Id == request.PublicationId);
+            if (publication is null)
+            {
+                return NotFound("Издание не найдено.");
+            }
+
             var index = UserReviews.FindIndex(x => x.Id == request.Id && x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase));
             if (index < 0)
             {
@@ -634,7 +684,8 @@ public class HomeController : Controller
             var old = UserReviews[index];
             UserReviews[index] = old with
             {
-                PublicationTitle = request.PublicationTitle.Trim(),
+                PublicationId = publication.Id,
+                PublicationTitle = publication.Title,
                 ReviewText = request.ReviewText.Trim(),
                 AttachmentFileName = request.AttachmentFileName?.Trim()
             };
