@@ -1,0 +1,26 @@
+﻿@model PublishingReviewApp.Models.PublicationListViewModel
+@{
+    ViewData["Title"] = "Главная";
+}
+
+<div class="text-center mb-4">
+    <h1 class="display-5">@Model.ProjectName</h1>
+    <p class="text-muted">Веб-приложение для публикаций и рецензирования.</p>
+</div>
+
+<div class="row row-cols-1 row-cols-md-2 g-3">
+    @foreach (var publication in Model.Publications)
+    {
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">@publication.Title</h5>
+                    <p class="card-text mb-1"><strong>Категория:</strong> @publication.Category</p>
+                    <p class="card-text mb-1"><strong>Автор:</strong> @publication.Author</p>
+                    <p class="card-text mb-1"><strong>Рейтинг:</strong> @publication.AverageRating</p>
+                    <p class="card-text text-muted mb-0">Создано: @publication.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
