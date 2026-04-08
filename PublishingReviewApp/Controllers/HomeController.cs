@@ -9,11 +9,11 @@ public class HomeController : Controller
 {
     private static readonly object SyncRoot = new();
 
-    private static readonly List<ReviewerTaskModel> ReviewQueue =
+    private static readonly List<ReviewTaskModel> ReviewQueue =
     [
-        new ReviewerTaskModel(1, 101, "Методы автоматической вёрстки", "И.И. Иванов", "Научная статья", ReviewState.WaitingForReviewer, null, null, null),
-        new ReviewerTaskModel(2, 102, "Редакционный цикл издательства", "П.П. Петров", "Монография", ReviewState.InReview, "expert@publisher.local", DateTime.UtcNow.AddDays(5), null),
-        new ReviewerTaskModel(3, 103, "Проверка корректуры", "А.А. Сидоров", "Учебное пособие", ReviewState.RequiresRevision, "reviewer@publisher.local", DateTime.UtcNow.AddDays(-2), "Нужно доработать ссылки и библиографию")
+        new ReviewTaskModel(1, 101, "Методы автоматической вёрстки", "И.И. Иванов", "Научная статья", ReviewWorkflowState.WaitingForReviewer, null, null, null),
+        new ReviewTaskModel(2, 102, "Редакционный цикл издательства", "П.П. Петров", "Монография", ReviewWorkflowState.InReview, "expert@publisher.local", DateTime.UtcNow.AddDays(5), null),
+        new ReviewTaskModel(3, 103, "Проверка корректуры", "А.А. Сидоров", "Учебное пособие", ReviewWorkflowState.RequiresRevision, "reviewer@publisher.local", DateTime.UtcNow.AddDays(-2), "Нужно доработать ссылки и библиографию")
     ];
 
     private readonly ILogger<HomeController> _logger;
@@ -34,14 +34,14 @@ public class HomeController : Controller
     {
         lock (SyncRoot)
         {
-            var model = new DashboardViewModel
+            var model = new ReviewDashboardModel
             {
                 TotalPublications = ReviewQueue.Select(x => x.PublicationId).Distinct().Count(),
-                WaitingForReviewer = ReviewQueue.Count(x => x.State == ReviewState.WaitingForReviewer),
-                InReview = ReviewQueue.Count(x => x.State == ReviewState.InReview),
-                RequiresRevision = ReviewQueue.Count(x => x.State == ReviewState.RequiresRevision),
-                Approved = ReviewQueue.Count(x => x.State == ReviewState.Approved),
-                Rejected = ReviewQueue.Count(x => x.State == ReviewState.Rejected),
+                WaitingForReviewer = ReviewQueue.Count(x => x.State == ReviewWorkflowState.WaitingForReviewer),
+                InReview = ReviewQueue.Count(x => x.State == ReviewWorkflowState.InReview),
+                RequiresRevision = ReviewQueue.Count(x => x.State == ReviewWorkflowState.RequiresRevision),
+                Approved = ReviewQueue.Count(x => x.State == ReviewWorkflowState.Approved),
+                Rejected = ReviewQueue.Count(x => x.State == ReviewWorkflowState.Rejected),
                 NearestDeadlines = ReviewQueue
                     .Where(x => x.DeadlineUtc.HasValue)
                     .OrderBy(x => x.DeadlineUtc)
@@ -54,7 +54,7 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public IActionResult ReviewQueueList([FromQuery] ReviewState? state)
+    public IActionResult ReviewQueueList([FromQuery] ReviewWorkflowState? state)
     {
         lock (SyncRoot)
         {
@@ -69,7 +69,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public IActionResult CreatePublicationForReview([FromBody] CreateReviewPublicationRequest request)
+    public IActionResult CreatePublicationForReview([FromBody] PublicationReviewCreateModel request)
     {
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.AuthorFullName) || string.IsNullOrWhiteSpace(request.PublicationType))
         {
@@ -81,13 +81,13 @@ public class HomeController : Controller
             var nextId = ReviewQueue.Count == 0 ? 1 : ReviewQueue.Max(x => x.Id) + 1;
             var nextPublicationId = ReviewQueue.Count == 0 ? 100 : ReviewQueue.Max(x => x.PublicationId) + 1;
 
-            var item = new ReviewerTaskModel(
+            var item = new ReviewTaskModel(
                 nextId,
                 nextPublicationId,
                 request.Title.Trim(),
                 request.AuthorFullName.Trim(),
                 request.PublicationType.Trim(),
-                ReviewState.WaitingForReviewer,
+                ReviewWorkflowState.WaitingForReviewer,
                 null,
                 null,
                 request.EditorComment?.Trim());
@@ -110,7 +110,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public IActionResult AssignReviewer([FromBody] AssignReviewerRequest request)
+    public IActionResult AssignReviewer([FromBody] ReviewerAssignmentModel request)
     {
         if (request.TaskId <= 0 || string.IsNullOrWhiteSpace(request.ReviewerEmail))
         {
@@ -130,7 +130,7 @@ public class HomeController : Controller
             {
                 ReviewerEmail = request.ReviewerEmail.Trim(),
                 DeadlineUtc = request.DeadlineUtc ?? DateTime.UtcNow.AddDays(7),
-                State = ReviewState.InReview
+                State = ReviewWorkflowState.InReview
             };
 
             ReviewQueue[idx] = updated;
@@ -139,7 +139,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public IActionResult SubmitReviewResult([FromBody] SubmitReviewRequest request)
+    public IActionResult SubmitReviewResult([FromBody] ReviewDecisionModel request)
     {
         if (request.TaskId <= 0)
         {
