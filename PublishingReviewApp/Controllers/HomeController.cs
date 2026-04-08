@@ -1,6 +1,12 @@
 ﻿using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using PublishingReviewApp.Models;
+using PublishingReviewContracts.BindingModel;
+using PublishingReviewContracts.BusinessLogicContracts;
+using PublishingReviewContracts.SearchModels;
+using PublishingReviewDataModels.Enums;
+using PublishingReviewDatabase;
+using PublishingReviewDatabaseImplements.Models;
 
 namespace PublishingReviewApp.Controllers;
 
@@ -12,38 +18,28 @@ public class HomeController : Controller
     private const string SessionFullNameKey = "UserFullName";
     private const string SessionRoleKey = "UserRole";
 
-    private static readonly object SyncRoot = new();
-
-    private static readonly List<UserAccountModel> Users =
-    [
-        new UserAccountModel("Сотрудник редакции", "employee@publisher.local", "employee123", "employee", "Редакция"),
-        new UserAccountModel("Тестовый пользователь", "user@publisher.local", "user123", "user", "Университет")
-    ];
-
-    private static readonly List<PublicationCatalogItemModel> Publications =
-    [
-        new PublicationCatalogItemModel(101, "Методы автоматической вёрстки", "И.И. Иванов", "Научная статья", "Опубликовано"),
-        new PublicationCatalogItemModel(102, "Редакционный цикл издательства", "П.П. Петров", "Монография", "На рецензии"),
-        new PublicationCatalogItemModel(103, "Проверка корректуры", "А.А. Сидоров", "Учебное пособие", "На доработке")
-    ];
-
-    private static readonly List<ReviewTaskModel> ReviewQueue =
-    [
-        new ReviewTaskModel(1, 101, "Методы автоматической вёрстки", "И.И. Иванов", "Научная статья", ReviewWorkflowState.WaitingForReviewer, null, null, null, DateTime.UtcNow.AddDays(-8)),
-        new ReviewTaskModel(2, 102, "Редакционный цикл издательства", "П.П. Петров", "Монография", ReviewWorkflowState.InReview, "expert@publisher.local", DateTime.UtcNow.AddDays(5), null, DateTime.UtcNow.AddDays(-4)),
-        new ReviewTaskModel(3, 103, "Проверка корректуры", "А.А. Сидоров", "Учебное пособие", ReviewWorkflowState.RequiresRevision, "reviewer@publisher.local", DateTime.UtcNow.AddDays(-2), "Нужно доработать ссылки и библиографию", DateTime.UtcNow.AddDays(-2))
-    ];
-
-    private static readonly List<UserReviewRecordModel> UserReviews = [];
-    private static readonly List<FavoriteItemModel> Favorites = [];
-    private static readonly List<ReviewCommentItemModel> Comments = [];
-
-
     private readonly ILogger<HomeController> _logger;
 
-    public HomeController(ILogger<HomeController> logger)
+    private readonly IUserLogic _userLogic;
+    private readonly IPublicationLogic _publicationLogic;
+    private readonly IReviewLogic _reviewLogic;
+    private readonly ICommentLogic _commentLogic;
+    private readonly PublishingDatabase _db;
+
+    public HomeController(
+        ILogger<HomeController> logger,
+        IUserLogic userLogic,
+        IPublicationLogic publicationLogic,
+        IReviewLogic reviewLogic,
+        ICommentLogic commentLogic,
+        PublishingDatabase db)
     {
         _logger = logger;
+        _userLogic = userLogic;
+        _publicationLogic = publicationLogic;
+        _reviewLogic = reviewLogic;
+        _commentLogic = commentLogic;
+        _db = db;
     }
 
     [HttpGet]
@@ -71,13 +67,7 @@ public class HomeController : Controller
             return RedirectToAction(nameof(Enter));
         }
 
-        UserAccountModel? user;
-        lock (SyncRoot)
-        {
-            user = Users.FirstOrDefault(x =>
-                x.Email.Equals(request.Email.Trim(), StringComparison.OrdinalIgnoreCase)
-                && x.Password == request.Password);
-        }
+        var user = _userLogic.ReadElement(new UserSearchModel { Email = request.Email.Trim() });
 
         if (user is null)
         {
@@ -88,7 +78,7 @@ public class HomeController : Controller
         HttpContext.Session.SetString(SessionAuthKey, bool.TrueString);
         HttpContext.Session.SetString(SessionEmailKey, user.Email);
         HttpContext.Session.SetString(SessionFullNameKey, user.FullName);
-        HttpContext.Session.SetString(SessionRoleKey, user.Role);
+        HttpContext.Session.SetString(SessionRoleKey, user.Role == UserRole.Employee ? "employee" : "user");
 
         return RedirectToAction(nameof(DashboardPage));
     }
@@ -132,20 +122,28 @@ public class HomeController : Controller
             return RedirectToAction(nameof(Register));
         }
 
-        lock (SyncRoot)
+        if (_userLogic.ReadElement(new UserSearchModel { Email = request.Email.Trim() }) != null)
         {
-            if (Users.Any(x => x.Email.Equals(request.Email.Trim(), StringComparison.OrdinalIgnoreCase)))
-            {
-                TempData["Error"] = "Пользователь с таким email уже зарегистрирован.";
-                return RedirectToAction(nameof(Register));
-            }
+            TempData["Error"] = "Пользователь с таким email уже зарегистрирован.";
+            return RedirectToAction(nameof(Register));
+        }
 
-            Users.Add(new UserAccountModel(
-                request.FullName.Trim(),
-                request.Email.Trim(),
-                request.Password,
-                normalizedRole,
-                request.Organization?.Trim()));
+        try
+        {
+            _userLogic.Create(new UserBindingModel
+            {
+                FullName = request.FullName.Trim(),
+                Username = request.Email.Trim(),
+                Email = request.Email.Trim(),
+                Password = request.Password,
+                Role = normalizedRole == "employee" ? UserRole.Employee : UserRole.Customer
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cannot persist user {Email} to database", request.Email);
+            TempData["Error"] = $"Не удалось сохранить пользователя в БД: {ex.Message}";
+            return RedirectToAction(nameof(Register));
         }
 
         TempData["Success"] = "Регистрация выполнена. Теперь войдите в систему.";
@@ -182,15 +180,14 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
-        lock (SyncRoot)
-        {
-            ViewBag.TotalPublications = ReviewQueue.Select(x => x.PublicationId).Distinct().Count();
-            ViewBag.WaitingForReviewer = ReviewQueue.Count(x => x.State == ReviewWorkflowState.WaitingForReviewer);
-            ViewBag.InReview = ReviewQueue.Count(x => x.State == ReviewWorkflowState.InReview);
-            ViewBag.RequiresRevision = ReviewQueue.Count(x => x.State == ReviewWorkflowState.RequiresRevision);
-            ViewBag.Approved = ReviewQueue.Count(x => x.State == ReviewWorkflowState.Approved);
-            ViewBag.Rejected = ReviewQueue.Count(x => x.State == ReviewWorkflowState.Rejected);
-        }
+        var publications = _publicationLogic.ReadList(null) ?? new();
+        var reviews = _reviewLogic.ReadList(null) ?? new();
+        ViewBag.TotalPublications = publications.Count;
+        ViewBag.WaitingForReviewer = publications.Count(p => reviews.All(r => r.PublicationId != p.Id));
+        ViewBag.InReview = reviews.Count(r => r.Status == ReviewStatus.Pending);
+        ViewBag.RequiresRevision = 0;
+        ViewBag.Approved = reviews.Count(r => r.Status == ReviewStatus.Confirmed);
+        ViewBag.Rejected = 0;
 
         return View();
     }
@@ -323,25 +320,21 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
-        lock (SyncRoot)
+        var publications = _publicationLogic.ReadList(null) ?? new();
+        var reviews = _reviewLogic.ReadList(null) ?? new();
+        var queue = BuildReviewQueue(publications, reviews);
+        var model = new ReviewDashboardModel
         {
-            var model = new ReviewDashboardModel
-            {
-                TotalPublications = ReviewQueue.Select(x => x.PublicationId).Distinct().Count(),
-                WaitingForReviewer = ReviewQueue.Count(x => x.State == ReviewWorkflowState.WaitingForReviewer),
-                InReview = ReviewQueue.Count(x => x.State == ReviewWorkflowState.InReview),
-                RequiresRevision = ReviewQueue.Count(x => x.State == ReviewWorkflowState.RequiresRevision),
-                Approved = ReviewQueue.Count(x => x.State == ReviewWorkflowState.Approved),
-                Rejected = ReviewQueue.Count(x => x.State == ReviewWorkflowState.Rejected),
-                NearestDeadlines = ReviewQueue
-                    .Where(x => x.DeadlineUtc.HasValue)
-                    .OrderBy(x => x.DeadlineUtc)
-                    .Take(5)
-                    .ToList()
-            };
+            TotalPublications = publications.Count,
+            WaitingForReviewer = queue.Count(x => x.State == ReviewWorkflowState.WaitingForReviewer),
+            InReview = queue.Count(x => x.State == ReviewWorkflowState.InReview),
+            RequiresRevision = queue.Count(x => x.State == ReviewWorkflowState.RequiresRevision),
+            Approved = queue.Count(x => x.State == ReviewWorkflowState.Approved),
+            Rejected = queue.Count(x => x.State == ReviewWorkflowState.Rejected),
+            NearestDeadlines = queue.Where(x => x.DeadlineUtc.HasValue).OrderBy(x => x.DeadlineUtc).Take(5).ToList()
+        };
 
-            return Ok(model);
-        }
+        return Ok(model);
     }
 
     [HttpGet]
@@ -352,16 +345,12 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
-        lock (SyncRoot)
+        var queue = BuildReviewQueue(_publicationLogic.ReadList(null) ?? new(), _reviewLogic.ReadList(null) ?? new()).AsEnumerable();
+        if (state.HasValue)
         {
-            var query = ReviewQueue.AsEnumerable();
-            if (state.HasValue)
-            {
-                query = query.Where(x => x.State == state.Value);
-            }
-
-            return Ok(query.OrderBy(x => x.State).ThenBy(x => x.DeadlineUtc ?? DateTime.MaxValue).Select(MapReviewTaskForOutput).ToList());
+            queue = queue.Where(x => x.State == state.Value);
         }
+        return Ok(queue.OrderBy(x => x.State).ThenBy(x => x.DeadlineUtc ?? DateTime.MaxValue).Select(MapReviewTaskForOutput).ToList());
     }
 
     [HttpGet]
@@ -372,34 +361,37 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
-        lock (SyncRoot)
+        var publications = _publicationLogic.ReadList(null) ?? new();
+        var reviews = _reviewLogic.ReadList(null) ?? new();
+
+        var query = publications.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            var query = Publications.AsEnumerable();
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var searchText = search.Trim();
-                query = query.Where(x => x.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase)
-                    || x.AuthorFullName.Contains(searchText, StringComparison.OrdinalIgnoreCase));
-            }
-
-            if (!string.IsNullOrWhiteSpace(publicationType))
-            {
-                query = query.Where(x => x.PublicationType.Equals(publicationType.Trim(), StringComparison.OrdinalIgnoreCase));
-            }
-
-            var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
-            var favoriteIds = Favorites.Where(x => x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase)).Select(x => x.PublicationId).ToHashSet();
-            return Ok(query.OrderBy(x => x.Id).Select(x => new
-            {
-                x.Id,
-                x.Title,
-                x.AuthorFullName,
-                x.PublicationType,
-                x.ReviewSummary,
-                IsFavorite = favoriteIds.Contains(x.Id),
-                ReviewCount = UserReviews.Count(r => r.PublicationId == x.Id)
-            }));
+            var searchText = search.Trim();
+            query = query.Where(x => x.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || x.Authors.Contains(searchText, StringComparison.OrdinalIgnoreCase));
         }
+
+        if (!string.IsNullOrWhiteSpace(publicationType))
+        {
+            query = query.Where(x => x.Publisher.Equals(publicationType.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+        var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
+        var currentUser = _userLogic.ReadElement(new UserSearchModel { Email = currentUserEmail });
+        var favoriteIds = currentUser == null
+            ? new HashSet<int>()
+            : _db.PublicationFavorites.Where(x => x.UserId == currentUser.Id).Select(x => x.PublicationId).ToHashSet();
+
+        return Ok(query.OrderBy(x => x.Id).Select(x => new
+        {
+            x.Id,
+            x.Title,
+            AuthorFullName = x.Authors,
+            PublicationType = x.Publisher,
+            ReviewSummary = x.Description,
+            IsFavorite = favoriteIds.Contains(x.Id),
+            ReviewCount = reviews.Count(r => r.PublicationId == x.Id)
+        }));
     }
 
     [HttpPost]
@@ -420,15 +412,37 @@ public class HomeController : Controller
             return BadRequest("Не заполнены обязательные поля: Title, AuthorFullName, PublicationType.");
         }
 
-        lock (SyncRoot)
+        var created = _publicationLogic.Create(new PublicationBindingModel
         {
-            var nextPublicationId = Publications.Count == 0 ? 100 : Publications.Max(x => x.Id) + 1;
-            var newPublication = new PublicationCatalogItemModel(nextPublicationId, request.Title.Trim(), request.AuthorFullName.Trim(), request.PublicationType.Trim(), "Новая запись");
-            Publications.Add(newPublication);
+            Title = request.Title.Trim(),
+            Authors = request.AuthorFullName.Trim(),
+            Publisher = request.PublicationType.Trim(),
+            PublishDate = DateTime.UtcNow,
+            Description = request.EditorComment?.Trim() ?? "Новая запись",
+            Volume = 1,
+            SubjectText = request.PublicationType.Trim()
+        });
 
-            _logger.LogInformation("Publication {PublicationId} added to catalog", nextPublicationId);
-            return Ok(newPublication);
+        if (!created)
+        {
+            return BadRequest("Не удалось сохранить публикацию в БД.");
         }
+
+        var publication = _publicationLogic.ReadList(new PublicationSearchModel { Title = request.Title.Trim() })?
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault();
+
+        if (publication is null)
+        {
+            return BadRequest("Публикация создана, но не найдена при повторном чтении.");
+        }
+        _logger.LogInformation("Publication {PublicationId} added to catalog", publication.Id);
+        return Ok(new PublicationCatalogItemModel(
+            publication.Id,
+            publication.Title,
+            publication.Authors,
+            publication.Publisher,
+            publication.Description));
     }
 
     [HttpPut]
@@ -449,24 +463,35 @@ public class HomeController : Controller
             return BadRequest("Передайте корректные данные публикации.");
         }
 
-        lock (SyncRoot)
+        var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = request.Id });
+        if (publication is null)
         {
-            var index = Publications.FindIndex(x => x.Id == request.Id);
-            if (index < 0)
-            {
-                return NotFound("Публикация не найдена.");
-            }
-
-            Publications[index] = request with
-            {
-                Title = request.Title.Trim(),
-                AuthorFullName = request.AuthorFullName.Trim(),
-                PublicationType = request.PublicationType.Trim(),
-                ReviewSummary = string.IsNullOrWhiteSpace(request.ReviewSummary) ? "Без итоговой рецензии" : request.ReviewSummary.Trim()
-            };
-
-            return Ok(Publications[index]);
+            return NotFound("Публикация не найдена.");
         }
+
+        var updated = _publicationLogic.Update(new PublicationBindingModel
+        {
+            Id = request.Id,
+            Title = request.Title.Trim(),
+            Authors = request.AuthorFullName.Trim(),
+            Publisher = request.PublicationType.Trim(),
+            PublishDate = publication.PublishDate ?? DateTime.UtcNow,
+            Description = string.IsNullOrWhiteSpace(request.ReviewSummary) ? "Без итоговой рецензии" : request.ReviewSummary.Trim(),
+            Volume = 1,
+            SubjectText = request.PublicationType.Trim()
+        });
+
+        if (!updated)
+        {
+            return BadRequest("Не удалось обновить публикацию.");
+        }
+        return Ok(request with
+        {
+            Title = request.Title.Trim(),
+            AuthorFullName = request.AuthorFullName.Trim(),
+            PublicationType = request.PublicationType.Trim(),
+            ReviewSummary = string.IsNullOrWhiteSpace(request.ReviewSummary) ? "Без итоговой рецензии" : request.ReviewSummary.Trim()
+        });
     }
 
     [HttpDelete("{id:int}")]
@@ -482,12 +507,8 @@ public class HomeController : Controller
             return forbiddenResult;
         }
 
-        lock (SyncRoot)
-        {
-            var removed = Publications.RemoveAll(x => x.Id == id);
-            Favorites.RemoveAll(x => x.PublicationId == id);
-            return removed == 0 ? NotFound("Публикация не найдена.") : Ok();
-        }
+        var removed = _publicationLogic.Delete(new PublicationBindingModel { Id = id });
+        return !removed ? NotFound("Публикация не найдена.") : Ok();
     }
 
     [HttpPost]
@@ -514,24 +535,28 @@ public class HomeController : Controller
             return Unauthorized();
         }
 
-        lock (SyncRoot)
+        var user = _userLogic.ReadElement(new UserSearchModel { Email = currentUserEmail });
+        if (user is null)
         {
-            var publicationExists = Publications.Any(x => x.Id == request.PublicationId);
-            if (!publicationExists)
-            {
-                return NotFound("Публикация не найдена.");
-            }
-
-            var existing = Favorites.FirstOrDefault(x => x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase) && x.PublicationId == request.PublicationId);
-            if (existing is null)
-            {
-                Favorites.Add(new FavoriteItemModel(currentUserEmail, request.PublicationId));
-                return Ok(new { isFavorite = true });
-            }
-
-            Favorites.Remove(existing);
-            return Ok(new { isFavorite = false });
+            return NotFound("Пользователь не найден.");
         }
+
+        var publicationExists = _publicationLogic.ReadElement(new PublicationSearchModel { Id = request.PublicationId }) != null;
+        if (!publicationExists)
+        {
+            return NotFound("Публикация не найдена.");
+        }
+
+        var existing = _db.PublicationFavorites.FirstOrDefault(x => x.UserId == user.Id && x.PublicationId == request.PublicationId);
+        if (existing is null)
+        {
+            _db.PublicationFavorites.Add(new PublicationFavorite { UserId = user.Id, PublicationId = request.PublicationId });
+            _db.SaveChanges();
+            return Ok(new { isFavorite = true });
+        }
+        _db.PublicationFavorites.Remove(existing);
+        _db.SaveChanges();
+        return Ok(new { isFavorite = false });
     }
 
     [HttpGet]
@@ -548,12 +573,19 @@ public class HomeController : Controller
         }
 
         var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
-        lock (SyncRoot)
+        var user = _userLogic.ReadElement(new UserSearchModel { Email = currentUserEmail });
+        if (user is null)
         {
-            var publicationIds = Favorites.Where(x => x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase)).Select(x => x.PublicationId).ToHashSet();
-            var data = Publications.Where(x => publicationIds.Contains(x.Id)).OrderBy(x => x.Title).ToList();
-            return Ok(data);
+            return Ok(new List<PublicationCatalogItemModel>());
         }
+
+        var publicationIds = _db.PublicationFavorites.Where(x => x.UserId == user.Id).Select(x => x.PublicationId).ToHashSet();
+        var data = _publicationLogic.ReadList(null)?
+            .Where(x => publicationIds.Contains(x.Id))
+            .OrderBy(x => x.Title)
+            .Select(x => new PublicationCatalogItemModel(x.Id, x.Title, x.Authors, x.Publisher, x.Description))
+            .ToList() ?? new List<PublicationCatalogItemModel>();
+        return Ok(data);
     }
 
     [HttpGet]
@@ -570,11 +602,25 @@ public class HomeController : Controller
         }
 
         var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
-        lock (SyncRoot)
+        var user = _userLogic.ReadElement(new UserSearchModel { Email = currentUserEmail });
+        if (user is null)
         {
-            var data = UserReviews.Where(x => x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase)).OrderByDescending(x => x.CreatedUtc).ToList();
-            return Ok(data);
+            return Ok(new List<UserReviewRecordModel>());
         }
+        var reviews = _reviewLogic.ReadList(new ReviewSearchModel { ReviewerId = user.Id }) ?? new();
+        var publications = _publicationLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Title) ?? new Dictionary<int, string>();
+        var data = reviews
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new UserReviewRecordModel(
+                x.Id,
+                currentUserEmail,
+                x.PublicationId,
+                publications.TryGetValue(x.PublicationId, out var title) ? title : $"Публикация #{x.PublicationId}",
+                x.Content,
+                null,
+                x.CreatedAt))
+            .ToList();
+        return Ok(data);
     }
 
     [HttpGet("{publicationId:int}")]
@@ -585,33 +631,39 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
-        lock (SyncRoot)
+        var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = publicationId });
+        if (publication is null)
         {
-            if (!Publications.Any(x => x.Id == publicationId))
-            {
-                return NotFound("Издание не найдено.");
-            }
-
-            var data = UserReviews
-                .Where(x => x.PublicationId == publicationId)
-                .OrderByDescending(x => x.CreatedUtc)
-                .Select(x => new
-                {
-                    x.Id,
-                    x.PublicationId,
-                    x.PublicationTitle,
-                    x.ReviewText,
-                    x.AttachmentFileName,
-                    x.CreatedUtc,
-                    x.UserEmail,
-                    Comments = Comments.Where(c => c.ReviewId == x.Id)
-                        .OrderByDescending(c => c.CreatedUtc)
-                        .ToList()
-                })
-                .ToList();
-
-            return Ok(data);
+            return NotFound("Издание не найдено.");
         }
+
+        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email) ?? new Dictionary<int, string>();
+        var comments = _commentLogic.ReadList(null) ?? new();
+        var data = (_reviewLogic.ReadList(new ReviewSearchModel { PublicationId = publicationId }) ?? new())
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new
+            {
+                x.Id,
+                x.PublicationId,
+                PublicationTitle = publication.Title,
+                ReviewText = x.Content,
+                AttachmentFileName = (string?)null,
+                CreatedUtc = x.CreatedAt,
+                UserEmail = users.TryGetValue(x.ReviewerId, out var email) ? email : $"user-{x.ReviewerId}",
+                Comments = comments
+                    .Where(c => c.ReviewId == x.Id)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Select(c => new ReviewCommentItemModel(
+                        c.Id,
+                        c.ReviewId,
+                        users.TryGetValue(c.AuthorId, out var authorEmail) ? authorEmail : $"user-{c.AuthorId}",
+                        c.Content,
+                        c.CreatedAt))
+                    .ToList()
+            })
+            .ToList();
+
+        return Ok(data);
     }
 
     [HttpPost]
@@ -633,19 +685,46 @@ public class HomeController : Controller
         }
 
         var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
-        lock (SyncRoot)
+        var user = _userLogic.ReadElement(new UserSearchModel { Email = currentUserEmail });
+        if (user is null)
         {
-            var publication = Publications.FirstOrDefault(x => x.Id == request.PublicationId);
-            if (publication is null)
-            {
-                return NotFound("Издание не найдено.");
-            }
-
-            var nextId = UserReviews.Count == 0 ? 1 : UserReviews.Max(x => x.Id) + 1;
-            var review = new UserReviewRecordModel(nextId, currentUserEmail, publication.Id, publication.Title, request.ReviewText.Trim(), request.AttachmentFileName?.Trim(), DateTime.UtcNow);
-            UserReviews.Add(review);
-            return Ok(review);
+            return NotFound("Пользователь не найден.");
         }
+
+        var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = request.PublicationId });
+        if (publication is null)
+        {
+            return NotFound("Издание не найдено.");
+        }
+
+        var created = _reviewLogic.Create(new ReviewBindingModel
+        {
+            PublicationId = publication.Id,
+            ReviewerId = user.Id,
+            Content = request.ReviewText.Trim(),
+            Rating = 0,
+            Status = ReviewStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        if (!created)
+        {
+            return BadRequest("Не удалось сохранить рецензию.");
+        }
+
+        var review = _reviewLogic.ReadList(new ReviewSearchModel { PublicationId = publication.Id })?
+            .Where(x => x.ReviewerId == user.Id && x.Content == request.ReviewText.Trim())
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault();
+
+        return Ok(new UserReviewRecordModel(
+            review?.Id ?? 0,
+            currentUserEmail,
+            publication.Id,
+            publication.Title,
+            request.ReviewText.Trim(),
+            request.AttachmentFileName?.Trim(),
+            DateTime.UtcNow));
     }
 
     [HttpPut]
@@ -667,31 +746,48 @@ public class HomeController : Controller
         }
 
         var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
-        lock (SyncRoot)
+        var user = _userLogic.ReadElement(new UserSearchModel { Email = currentUserEmail });
+        if (user is null)
         {
-            var publication = Publications.FirstOrDefault(x => x.Id == request.PublicationId);
-            if (publication is null)
-            {
-                return NotFound("Издание не найдено.");
-            }
-
-            var index = UserReviews.FindIndex(x => x.Id == request.Id && x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase));
-            if (index < 0)
-            {
-                return NotFound("Рецензия не найдена.");
-            }
-
-            var old = UserReviews[index];
-            UserReviews[index] = old with
-            {
-                PublicationId = publication.Id,
-                PublicationTitle = publication.Title,
-                ReviewText = request.ReviewText.Trim(),
-                AttachmentFileName = request.AttachmentFileName?.Trim()
-            };
-
-            return Ok(UserReviews[index]);
+            return NotFound("Пользователь не найден.");
         }
+
+        var existingReview = _reviewLogic.ReadElement(new ReviewSearchModel { Id = request.Id });
+        if (existingReview is null || existingReview.ReviewerId != user.Id)
+        {
+            return NotFound("Рецензия не найдена.");
+        }
+
+        var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = request.PublicationId });
+        if (publication is null)
+        {
+            return NotFound("Издание не найдено.");
+        }
+
+        var updated = _reviewLogic.Update(new ReviewBindingModel
+        {
+            Id = request.Id,
+            PublicationId = publication.Id,
+            ReviewerId = user.Id,
+            Content = request.ReviewText.Trim(),
+            Rating = existingReview.Rating,
+            Status = existingReview.Status,
+            CreatedAt = existingReview.CreatedAt,
+            ConfirmedById = existingReview.ConfirmedById
+        });
+
+        if (!updated)
+        {
+            return BadRequest("Не удалось обновить рецензию.");
+        }
+        return Ok(new UserReviewRecordModel(
+            request.Id,
+            currentUserEmail,
+            publication.Id,
+            publication.Title,
+            request.ReviewText.Trim(),
+            request.AttachmentFileName?.Trim(),
+            existingReview.CreatedAt));
     }
 
     [HttpDelete("{id:int}")]
@@ -708,12 +804,19 @@ public class HomeController : Controller
         }
 
         var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
-        lock (SyncRoot)
+        var user = _userLogic.ReadElement(new UserSearchModel { Email = currentUserEmail });
+        if (user is null)
         {
-            var removed = UserReviews.RemoveAll(x => x.Id == id && x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase));
-            Comments.RemoveAll(x => x.ReviewId == id);
-            return removed == 0 ? NotFound("Рецензия не найдена.") : Ok();
+            return NotFound("Пользователь не найден.");
         }
+
+        var review = _reviewLogic.ReadElement(new ReviewSearchModel { Id = id });
+        if (review is null || review.ReviewerId != user.Id)
+        {
+            return NotFound("Рецензия не найдена.");
+        }
+        var deleted = _reviewLogic.Delete(new ReviewBindingModel { Id = id });
+        return !deleted ? NotFound("Рецензия не найдена.") : Ok();
     }
 
     [HttpGet("{reviewId:int}")]
@@ -724,11 +827,17 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
-        lock (SyncRoot)
-        {
-            var data = Comments.Where(x => x.ReviewId == reviewId).OrderByDescending(x => x.CreatedUtc).ToList();
-            return Ok(data);
-        }
+        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email) ?? new Dictionary<int, string>();
+        var data = (_commentLogic.ReadList(new CommentSearchModel { ReviewId = reviewId }) ?? new())
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new ReviewCommentItemModel(
+                x.Id,
+                x.ReviewId,
+                users.TryGetValue(x.AuthorId, out var author) ? author : $"user-{x.AuthorId}",
+                x.Content,
+                x.CreatedAt))
+            .ToList();
+        return Ok(data);
     }
 
     [HttpPost]
@@ -744,19 +853,39 @@ public class HomeController : Controller
             return BadRequest("ReviewId и Text обязательны.");
         }
 
-        var author = HttpContext.Session.GetString(SessionFullNameKey) ?? GetCurrentUserEmail() ?? "Пользователь";
-        lock (SyncRoot)
+        var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
+        var user = _userLogic.ReadElement(new UserSearchModel { Email = currentUserEmail });
+        if (user is null)
         {
-            if (!UserReviews.Any(x => x.Id == request.ReviewId))
-            {
-                return NotFound("Рецензия не найдена.");
-            }
-
-            var nextId = Comments.Count == 0 ? 1 : Comments.Max(x => x.Id) + 1;
-            var comment = new ReviewCommentItemModel(nextId, request.ReviewId, author, request.Text.Trim(), DateTime.UtcNow);
-            Comments.Add(comment);
-            return Ok(comment);
+            return NotFound("Пользователь не найден.");
         }
+
+        var review = _reviewLogic.ReadElement(new ReviewSearchModel { Id = request.ReviewId });
+        if (review is null)
+        {
+            return NotFound("Рецензия не найдена.");
+        }
+
+        var created = _commentLogic.Create(new CommentBindingModel
+        {
+            ReviewId = request.ReviewId,
+            AuthorId = user.Id,
+            Content = request.Text.Trim(),
+            CreatedAt = DateTime.UtcNow
+        });
+
+        if (!created)
+        {
+            return BadRequest("Не удалось сохранить комментарий.");
+        }
+
+        var comment = _commentLogic.ReadList(new CommentSearchModel { ReviewId = request.ReviewId })?
+            .Where(x => x.AuthorId == user.Id && x.Content == request.Text.Trim())
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault();
+
+        var author = HttpContext.Session.GetString(SessionFullNameKey) ?? currentUserEmail;
+        return Ok(new ReviewCommentItemModel(comment?.Id ?? 0, request.ReviewId, author, request.Text.Trim(), DateTime.UtcNow));
     }
 
     [HttpGet]
@@ -777,42 +906,39 @@ public class HomeController : Controller
             return BadRequest("Дата начала периода не может быть позже даты окончания.");
         }
 
-        lock (SyncRoot)
+        var from = dateFrom?.Date;
+        var to = dateTo?.Date.AddDays(1).AddTicks(-1);
+        var data = BuildReviewQueue(_publicationLogic.ReadList(null) ?? new(), _reviewLogic.ReadList(null) ?? new())
+            .Where(x => !from.HasValue || x.CreatedUtc >= from.Value)
+            .Where(x => !to.HasValue || x.CreatedUtc <= to.Value)
+            .OrderByDescending(x => x.CreatedUtc)
+            .ToList();
+
+        if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
         {
-            var from = dateFrom?.Date;
-            var to = dateTo?.Date.AddDays(1).AddTicks(-1);
-
-            var data = ReviewQueue
-                .Where(x => !from.HasValue || x.CreatedUtc >= from.Value)
-                .Where(x => !to.HasValue || x.CreatedUtc <= to.Value)
-                .OrderByDescending(x => x.CreatedUtc)
-                .ToList();
-
-            if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
+            var csv = new StringBuilder();
+            csv.AppendLine("Идентификатор задачи;Идентификатор издания;Название;Автор;Тип издания;Статус;Рецензент;Срок;Дата создания");
+            foreach (var item in data)
             {
-                var csv = new StringBuilder();
-                csv.AppendLine("Идентификатор задачи;Идентификатор издания;Название;Автор;Тип издания;Статус;Рецензент;Срок;Дата создания");
-                foreach (var item in data)
-                {
-                    csv.AppendLine($"{item.Id};{item.PublicationId};{item.Title};{item.AuthorFullName};{item.PublicationType};{ToRussianState(item.State)};{item.ReviewerEmail ?? string.Empty};{item.DeadlineUtc:dd.MM.yyyy HH:mm};{item.CreatedUtc:dd.MM.yyyy HH:mm}");
-                }
-
-                var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
-                return File(bytes, "text/csv; charset=utf-8", $"review-report-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
+                csv.AppendLine($"{item.Id};{item.PublicationId};{item.Title};{item.AuthorFullName};{item.PublicationType};{ToRussianState(item.State)};{item.ReviewerEmail ?? string.Empty};{item.DeadlineUtc:dd.MM.yyyy HH:mm};{item.CreatedUtc:dd.MM.yyyy HH:mm}");
             }
 
-            var summary = new
-            {
-                total = data.Count,
-                waiting = data.Count(x => x.State == ReviewWorkflowState.WaitingForReviewer),
-                inReview = data.Count(x => x.State == ReviewWorkflowState.InReview),
-                needsRevision = data.Count(x => x.State == ReviewWorkflowState.RequiresRevision),
-                approved = data.Count(x => x.State == ReviewWorkflowState.Approved),
-                rejected = data.Count(x => x.State == ReviewWorkflowState.Rejected)
-            };
-
-            return Ok(new { summary, items = data.Select(MapReviewTaskForOutput).ToList() });
+            var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+            return File(bytes, "text/csv; charset=utf-8", $"review-report-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
         }
+
+        var summary = new
+        {
+            total = data.Count,
+            waiting = data.Count(x => x.State == ReviewWorkflowState.WaitingForReviewer),
+            inReview = data.Count(x => x.State == ReviewWorkflowState.InReview),
+            needsRevision = data.Count(x => x.State == ReviewWorkflowState.RequiresRevision),
+            approved = data.Count(x => x.State == ReviewWorkflowState.Approved),
+            rejected = data.Count(x => x.State == ReviewWorkflowState.Rejected)
+        };
+
+        return Ok(new { summary, items = data.Select(MapReviewTaskForOutput).ToList() });
+
     }
 
     [HttpPost]
@@ -833,30 +959,45 @@ public class HomeController : Controller
             return BadRequest("Не заполнены обязательные поля: Title, AuthorFullName, PublicationType.");
         }
 
-        lock (SyncRoot)
+        var created = _publicationLogic.Create(new PublicationBindingModel
         {
-            var nextId = ReviewQueue.Count == 0 ? 1 : ReviewQueue.Max(x => x.Id) + 1;
-            var nextPublicationId = ReviewQueue.Count == 0 ? 100 : ReviewQueue.Max(x => x.PublicationId) + 1;
-
-            var item = new ReviewTaskModel(
-                nextId,
-                nextPublicationId,
-                request.Title.Trim(),
-                request.AuthorFullName.Trim(),
-                request.PublicationType.Trim(),
-                ReviewWorkflowState.WaitingForReviewer,
-                null,
-                null,
-                request.EditorComment?.Trim(),
-                DateTime.UtcNow);
-
-            ReviewQueue.Add(item);
-            Publications.Add(new PublicationCatalogItemModel(nextPublicationId, request.Title.Trim(), request.AuthorFullName.Trim(), request.PublicationType.Trim(), "Передано на рецензирование"));
-
-            _logger.LogInformation("Publication {PublicationId} created and added to review queue", nextPublicationId);
-            return CreatedAtAction(nameof(GetReviewTaskById), new { id = item.Id }, item);
+            Title = request.Title.Trim(),
+            Authors = request.AuthorFullName.Trim(),
+            Publisher = request.PublicationType.Trim(),
+            PublishDate = DateTime.UtcNow,
+            Description = request.EditorComment?.Trim() ?? "Передано на рецензирование",
+            Volume = 1,
+            SubjectText = request.PublicationType.Trim()
+        });
+        if (!created)
+        {
+            return BadRequest("Не удалось создать публикацию.");
         }
+
+        var publication = _publicationLogic.ReadList(new PublicationSearchModel { Title = request.Title.Trim() })?
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault();
+        if (publication is null)
+        {
+            return BadRequest("Публикация создана, но не найдена.");
+        }
+
+        var item = new ReviewTaskModel(
+            publication.Id,
+            publication.Id,
+            publication.Title,
+            publication.Authors,
+            publication.Publisher,
+            ReviewWorkflowState.WaitingForReviewer,
+            null,
+            null,
+            request.EditorComment?.Trim(),
+            DateTime.UtcNow);
+
+        _logger.LogInformation("Publication {PublicationId} created and added to review queue", publication.Id);
+        return CreatedAtAction(nameof(GetReviewTaskById), new { id = item.Id }, item);
     }
+
 
     [HttpGet("{id:int}")]
     public IActionResult GetReviewTaskById(int id)
@@ -866,11 +1007,31 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
-        lock (SyncRoot)
+        var review = _reviewLogic.ReadElement(new ReviewSearchModel { Id = id });
+        if (review is null)
         {
-            var item = ReviewQueue.FirstOrDefault(x => x.Id == id);
-            return item is null ? NotFound() : Ok(MapReviewTaskForOutput(item));
+            return NotFound();
         }
+        var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = review.PublicationId });
+        if (publication is null)
+        {
+            return NotFound();
+        }
+
+        var reviewer = _userLogic.ReadElement(new UserSearchModel { Id = review.ReviewerId });
+        var state = review.Status == ReviewStatus.Confirmed ? ReviewWorkflowState.Approved : ReviewWorkflowState.InReview;
+        var item = new ReviewTaskModel(
+            review.Id,
+            publication.Id,
+            publication.Title,
+            publication.Authors,
+            publication.Publisher,
+            state,
+            reviewer?.Email,
+            null,
+            null,
+            review.CreatedAt);
+        return Ok(MapReviewTaskForOutput(item));
     }
 
     [HttpPost]
@@ -891,25 +1052,48 @@ public class HomeController : Controller
             return BadRequest("TaskId и ReviewerEmail обязательны.");
         }
 
-        lock (SyncRoot)
+        var reviewer = _userLogic.ReadElement(new UserSearchModel { Email = request.ReviewerEmail.Trim() });
+        if (reviewer is null)
         {
-            var idx = ReviewQueue.FindIndex(x => x.Id == request.TaskId);
-            if (idx < 0)
-            {
-                return NotFound($"Задача рецензирования #{request.TaskId} не найдена.");
-            }
-
-            var old = ReviewQueue[idx];
-            var updated = old with
-            {
-                ReviewerEmail = request.ReviewerEmail.Trim(),
-                DeadlineUtc = request.DeadlineUtc ?? DateTime.UtcNow.AddDays(7),
-                State = ReviewWorkflowState.InReview
-            };
-
-            ReviewQueue[idx] = updated;
-            return Ok(MapReviewTaskForOutput(updated));
+            return NotFound("Рецензент не найден.");
         }
+
+        var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = request.TaskId });
+        if (publication is null)
+        {
+            return NotFound($"Задача рецензирования #{request.TaskId} не найдена.");
+        }
+
+        _reviewLogic.Create(new ReviewBindingModel
+        {
+            PublicationId = publication.Id,
+            ReviewerId = reviewer.Id,
+            Content = "Назначено на рецензирование",
+            Rating = 0,
+            Status = ReviewStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        });
+        var createdReview = _reviewLogic.ReadList(new ReviewSearchModel { PublicationId = publication.Id })?
+            .Where(x => x.ReviewerId == reviewer.Id)
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefault();
+        if (createdReview is null)
+        {
+            return BadRequest("Не удалось назначить рецензента.");
+        }
+
+        var updated = new ReviewTaskModel(
+            createdReview.Id,
+            publication.Id,
+            publication.Title,
+            publication.Authors,
+            publication.Publisher,
+            ReviewWorkflowState.InReview,
+            reviewer.Email,
+            request.DeadlineUtc ?? DateTime.UtcNow.AddDays(7),
+            null,
+            createdReview.CreatedAt);
+        return Ok(MapReviewTaskForOutput(updated));
     }
 
     [HttpPost]
@@ -930,24 +1114,43 @@ public class HomeController : Controller
             return BadRequest("TaskId обязателен.");
         }
 
-        lock (SyncRoot)
+        var review = _reviewLogic.ReadElement(new ReviewSearchModel { Id = request.TaskId });
+        if (review is null)
         {
-            var idx = ReviewQueue.FindIndex(x => x.Id == request.TaskId);
-            if (idx < 0)
-            {
-                return NotFound($"Задача рецензирования #{request.TaskId} не найдена.");
-            }
-
-            var old = ReviewQueue[idx];
-            var updated = old with
-            {
-                State = request.Decision,
-                EditorComment = string.IsNullOrWhiteSpace(request.Comment) ? old.EditorComment : request.Comment.Trim()
-            };
-
-            ReviewQueue[idx] = updated;
-            return Ok(MapReviewTaskForOutput(updated));
+            return NotFound($"Задача рецензирования #{request.TaskId} не найдена.");
         }
+
+        var isApproved = request.Decision == ReviewWorkflowState.Approved;
+        var updated = _reviewLogic.Update(new ReviewBindingModel
+        {
+            Id = review.Id,
+            PublicationId = review.PublicationId,
+            ReviewerId = review.ReviewerId,
+            Content = string.IsNullOrWhiteSpace(request.Comment) ? review.Content : request.Comment.Trim(),
+            Rating = review.Rating,
+            Status = isApproved ? ReviewStatus.Confirmed : ReviewStatus.Pending,
+            CreatedAt = review.CreatedAt,
+            ConfirmedById = review.ConfirmedById == 0 ? null : review.ConfirmedById
+        });
+        if (!updated)
+        {
+            return BadRequest("Не удалось сохранить решение по рецензии.");
+        }
+
+        var publication = _publicationLogic.ReadElement(new PublicationSearchModel { Id = review.PublicationId });
+        var user = _userLogic.ReadElement(new UserSearchModel { Id = review.ReviewerId });
+        var response = new ReviewTaskModel(
+            review.Id,
+            review.PublicationId,
+            publication?.Title ?? $"Публикация #{review.PublicationId}",
+            publication?.Authors ?? string.Empty,
+            publication?.Publisher ?? string.Empty,
+            request.Decision,
+            user?.Email,
+            null,
+            string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
+            review.CreatedAt);
+        return Ok(MapReviewTaskForOutput(response));
     }
 
     private object MapReviewTaskForOutput(ReviewTaskModel task) => new
@@ -964,6 +1167,51 @@ public class HomeController : Controller
         StateCode = task.State.ToString(),
         State = ToRussianState(task.State)
     };
+
+    private List<ReviewTaskModel> BuildReviewQueue(
+        List<PublishingReviewContracts.ViewModels.PublicationViewModel> publications,
+        List<PublishingReviewContracts.ViewModels.ReviewViewModel> reviews)
+    {
+        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email) ?? new Dictionary<int, string>();
+        var result = new List<ReviewTaskModel>();
+
+        foreach (var publication in publications)
+        {
+            var publicationReviews = reviews.Where(x => x.PublicationId == publication.Id).OrderByDescending(x => x.CreatedAt).ToList();
+            if (publicationReviews.Count == 0)
+            {
+                result.Add(new ReviewTaskModel(
+                    publication.Id,
+                    publication.Id,
+                    publication.Title,
+                    publication.Authors,
+                    publication.Publisher,
+                    ReviewWorkflowState.WaitingForReviewer,
+                    null,
+                    null,
+                    publication.Description,
+                    publication.PublishDate ?? DateTime.UtcNow));
+                continue;
+            }
+
+            foreach (var review in publicationReviews)
+            {
+                result.Add(new ReviewTaskModel(
+                    review.Id,
+                    publication.Id,
+                    publication.Title,
+                    publication.Authors,
+                    publication.Publisher,
+                    review.Status == ReviewStatus.Confirmed ? ReviewWorkflowState.Approved : ReviewWorkflowState.InReview,
+                    users.TryGetValue(review.ReviewerId, out var reviewerEmail) ? reviewerEmail : null,
+                    null,
+                    publication.Description,
+                    review.CreatedAt));
+            }
+        }
+
+        return result;
+    }
 
     private static string ToRussianState(ReviewWorkflowState state) => state switch
     {

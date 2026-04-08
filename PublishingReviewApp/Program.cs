@@ -1,3 +1,10 @@
+using Microsoft.AspNetCore.Identity;
+using PublishingReviewBusinessLogic.BusinessLogics;
+using PublishingReviewContracts.BusinessLogicContracts;
+using PublishingReviewContracts.StoragesContracts;
+using PublishingReviewDatabase;
+using PublishingReviewDatabaseImplements.Implements;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -10,6 +17,17 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     options.IdleTimeout = TimeSpan.FromHours(8);
 });
+
+builder.Services.AddScoped<IUserStorage, UserStorage>();
+builder.Services.AddScoped<IPublicationStorage, PublicationStorage>();
+builder.Services.AddScoped<IReviewStorage, ReviewStorage>();
+builder.Services.AddScoped<ICommentStorage, CommentStorage>();
+builder.Services.AddScoped<IUserLogic, UserLogic>();
+builder.Services.AddScoped<IPublicationLogic, PublicationLogic>();
+builder.Services.AddScoped<IReviewLogic, ReviewLogic>();
+builder.Services.AddScoped<ICommentLogic, CommentLogic>();
+builder.Services.AddScoped(typeof(IPasswordHasher<>), typeof(PasswordHasher<>));
+builder.Services.AddDbContext<PublishingDatabase>();
 
 var app = builder.Build();
 
