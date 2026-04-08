@@ -25,5 +25,11 @@ namespace PublishingReviewContracts.ViewModels
 
         [DisplayName("Описание")]
         public string Description { get; set; } = string.Empty;
+
+        [DisplayName("Том")]
+        public int Volume { get; set; }
+
+        [DisplayName("Тип публикации")]
+        public string SubjectText { get; set; } = string.Empty;
     }
 }

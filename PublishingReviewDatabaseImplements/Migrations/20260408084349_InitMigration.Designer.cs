@@ -12,7 +12,7 @@ using PublishingReviewDatabase;
 namespace PublishingReviewDatabaseImplements.Migrations
 {
     [DbContext(typeof(PublishingDatabase))]
-    [Migration("20260407195538_InitMigration")]
+    [Migration("20260408084349_InitMigration")]
     partial class InitMigration
     {
         /// <inheritdoc />

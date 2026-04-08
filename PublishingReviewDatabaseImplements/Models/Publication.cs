@@ -148,7 +148,9 @@ namespace PublishingReviewDatabase.Models
             PublishDate = PublishDate,
             Authors = AuthorsText,
             Publisher = SubjectText,
-            Description = Description ?? string.Empty
+            Description = Description ?? string.Empty,
+            Volume = Volume,
+            SubjectText = SubjectText
         };
     }
 }
