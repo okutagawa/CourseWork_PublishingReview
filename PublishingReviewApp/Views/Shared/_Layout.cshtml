@@ -1,6 +1,10 @@
 ﻿﻿@{
 var isAuth = Context.Session.GetString("IsAuthenticated") == bool.TrueString;
 var userName = Context.Session.GetString("UserFullName") ?? "Пользователь";
+
+var role = Context.Session.GetString("UserRole") ?? string.Empty;
+var isEmployee = role.Equals("employee", StringComparison.OrdinalIgnoreCase);
+var isUser = role.Equals("user", StringComparison.OrdinalIgnoreCase);
 }
 <!DOCTYPE html>
 <html lang="ru">
@@ -25,17 +29,15 @@ var userName = Context.Session.GetString("UserFullName") ?? "Пользоват�
             color: #fff8ef !important;
         }
 
-        .btn-primary,
-        .btn-secondary {
+        .btn-primary, .btn-secondary {
             background-color: #8a5c3b;
             border-color: #8a5c3b;
         }
 
-        .btn-primary:hover,
-        .btn-secondary:hover {
-            background-color: #74482b;
-            border-color: #74482b;
-        }
+            .btn-primary:hover, .btn-secondary:hover {
+                background-color: #74482b;
+                border-color: #74482b;
+            }
 
         .card {
             border: 1px solid #d8bf9e;
@@ -57,12 +59,24 @@ var userName = Context.Session.GetString("UserFullName") ?? "Пользоват�
 
                         @if (isAuth)
                         {
-                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="DashboardPage">Панель рецензирования</a></li>
-                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReviewQueuePage">Очередь рецензий</a></li>
-                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="CreatePublicationPage">Новая рукопись</a></li>
-                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="AssignReviewerPage">Назначение рецензента</a></li>
-                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="SubmitDecisionPage">Решение по рецензии</a></li>
-                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReportPage">Отчёты</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="DashboardPage">Панель</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="CatalogPage">Каталог</a></li>
+
+                            @if (isEmployee)
+                            {
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReviewQueuePage">Очередь рецензий</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="CreatePublicationPage">Добавить издание</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="AssignReviewerPage">Назначение рецензента</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="SubmitDecisionPage">Решение по рецензии</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReportPage">Статистика</a></li>
+                            }
+
+                            @if (isUser)
+                            {
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="FavoritesPage">Избранное</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="UserReviewsPage">Мои рецензии</a></li>
+                            }
+
                             <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Privacy">@userName</a></li>
                             <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Logout">Выход</a></li>
                         }

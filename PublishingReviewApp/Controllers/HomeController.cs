@@ -16,11 +16,16 @@ public class HomeController : Controller
 
     private static readonly List<UserAccountModel> Users =
     [
-        new UserAccountModel("Главный редактор", "editor@publisher.local", "editor123", "editor", "Редакция"),
-        new UserAccountModel("Тестовый рецензент", "reviewer@publisher.local", "reviewer123", "reviewer", "Внешний эксперт"),
-        new UserAccountModel("Тестовый автор", "author@publisher.local", "author123", "author", "Университет")
+        new UserAccountModel("Сотрудник редакции", "employee@publisher.local", "employee123", "employee", "Редакция"),
+        new UserAccountModel("Тестовый пользователь", "user@publisher.local", "user123", "user", "Университет")
     ];
 
+    private static readonly List<PublicationCatalogItemModel> Publications =
+    [
+        new PublicationCatalogItemModel(101, "Методы автоматической вёрстки", "И.И. Иванов", "Научная статья", "Опубликовано"),
+        new PublicationCatalogItemModel(102, "Редакционный цикл издательства", "П.П. Петров", "Монография", "На рецензии"),
+        new PublicationCatalogItemModel(103, "Проверка корректуры", "А.А. Сидоров", "Учебное пособие", "На доработке")
+    ];
 
     private static readonly List<ReviewTaskModel> ReviewQueue =
     [
@@ -28,6 +33,11 @@ public class HomeController : Controller
         new ReviewTaskModel(2, 102, "Редакционный цикл издательства", "П.П. Петров", "Монография", ReviewWorkflowState.InReview, "expert@publisher.local", DateTime.UtcNow.AddDays(5), null, DateTime.UtcNow.AddDays(-4)),
         new ReviewTaskModel(3, 103, "Проверка корректуры", "А.А. Сидоров", "Учебное пособие", ReviewWorkflowState.RequiresRevision, "reviewer@publisher.local", DateTime.UtcNow.AddDays(-2), "Нужно доработать ссылки и библиографию", DateTime.UtcNow.AddDays(-2))
     ];
+
+    private static readonly List<UserReviewRecordModel> UserReviews = [];
+    private static readonly List<FavoriteItemModel> Favorites = [];
+    private static readonly List<ReviewCommentItemModel> Comments = [];
+
 
     private readonly ILogger<HomeController> _logger;
 
@@ -114,7 +124,7 @@ public class HomeController : Controller
             return RedirectToAction(nameof(Register));
         }
 
-        var allowedRoles = new[] { "author", "reviewer", "editor" };
+        var allowedRoles = new[] { "user", "employee" };
         var normalizedRole = request.Role.Trim().ToLowerInvariant();
         if (!allowedRoles.Contains(normalizedRole))
         {
@@ -159,7 +169,7 @@ public class HomeController : Controller
 
         ViewBag.UserEmail = HttpContext.Session.GetString(SessionEmailKey);
         ViewBag.UserFullName = HttpContext.Session.GetString(SessionFullNameKey);
-        ViewBag.UserRole = HttpContext.Session.GetString(SessionRoleKey);
+        ViewBag.UserRole = GetRoleDisplayName();
 
         return View();
     }
@@ -197,11 +207,61 @@ public class HomeController : Controller
     }
 
     [HttpGet]
+    public IActionResult CatalogPage()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        ViewBag.IsEmployee = IsEmployee();
+        return View();
+    }
+
+    [HttpGet]
+    public IActionResult FavoritesPage()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenUserResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        return View();
+    }
+
+    [HttpGet]
+    public IActionResult UserReviewsPage()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenUserResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        return View();
+    }
+
+
+    [HttpGet]
     public IActionResult CreatePublicationPage()
     {
         if (TryUnauthorizedPageResult(out var unauthorizedResult))
         {
             return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
         }
 
         return View();
@@ -215,6 +275,11 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
+        if (TryForbiddenEmployeeResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
         return View();
     }
 
@@ -226,6 +291,11 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
+        if (TryForbiddenEmployeeResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
         return View();
     }
 
@@ -235,6 +305,11 @@ public class HomeController : Controller
         if (TryUnauthorizedPageResult(out var unauthorizedResult))
         {
             return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
         }
 
         return View();
@@ -285,7 +360,351 @@ public class HomeController : Controller
                 query = query.Where(x => x.State == state.Value);
             }
 
-            return Ok(query.OrderBy(x => x.State).ThenBy(x => x.DeadlineUtc ?? DateTime.MaxValue).ToList());
+            return Ok(query.OrderBy(x => x.State).ThenBy(x => x.DeadlineUtc ?? DateTime.MaxValue).Select(MapReviewTaskForOutput).ToList());
+        }
+    }
+
+    [HttpGet]
+    public IActionResult GetCatalog([FromQuery] string? search, [FromQuery] string? publicationType)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        lock (SyncRoot)
+        {
+            var query = Publications.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var searchText = search.Trim();
+                query = query.Where(x => x.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                    || x.AuthorFullName.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(publicationType))
+            {
+                query = query.Where(x => x.PublicationType.Equals(publicationType.Trim(), StringComparison.OrdinalIgnoreCase));
+            }
+
+            var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
+            var favoriteIds = Favorites.Where(x => x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase)).Select(x => x.PublicationId).ToHashSet();
+            return Ok(query.OrderBy(x => x.Id).Select(x => new
+            {
+                x.Id,
+                x.Title,
+                x.AuthorFullName,
+                x.PublicationType,
+                x.ReviewSummary,
+                IsFavorite = favoriteIds.Contains(x.Id)
+            }));
+        }
+    }
+
+    [HttpPost]
+    public IActionResult CreatePublication([FromBody] PublicationReviewCreateModel request)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.AuthorFullName) || string.IsNullOrWhiteSpace(request.PublicationType))
+        {
+            return BadRequest("Не заполнены обязательные поля: Title, AuthorFullName, PublicationType.");
+        }
+
+        lock (SyncRoot)
+        {
+            var nextPublicationId = Publications.Count == 0 ? 100 : Publications.Max(x => x.Id) + 1;
+            var newPublication = new PublicationCatalogItemModel(nextPublicationId, request.Title.Trim(), request.AuthorFullName.Trim(), request.PublicationType.Trim(), "Новая запись");
+            Publications.Add(newPublication);
+
+            _logger.LogInformation("Publication {PublicationId} added to catalog", nextPublicationId);
+            return Ok(newPublication);
+        }
+    }
+
+    [HttpPut]
+    public IActionResult UpdatePublication([FromBody] PublicationCatalogItemModel request)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        if (request.Id <= 0 || string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.AuthorFullName) || string.IsNullOrWhiteSpace(request.PublicationType))
+        {
+            return BadRequest("Передайте корректные данные публикации.");
+        }
+
+        lock (SyncRoot)
+        {
+            var index = Publications.FindIndex(x => x.Id == request.Id);
+            if (index < 0)
+            {
+                return NotFound("Публикация не найдена.");
+            }
+
+            Publications[index] = request with
+            {
+                Title = request.Title.Trim(),
+                AuthorFullName = request.AuthorFullName.Trim(),
+                PublicationType = request.PublicationType.Trim(),
+                ReviewSummary = string.IsNullOrWhiteSpace(request.ReviewSummary) ? "Без итоговой рецензии" : request.ReviewSummary.Trim()
+            };
+
+            return Ok(Publications[index]);
+        }
+    }
+
+    [HttpDelete("{id:int}")]
+    public IActionResult DeletePublication(int id)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        lock (SyncRoot)
+        {
+            var removed = Publications.RemoveAll(x => x.Id == id);
+            Favorites.RemoveAll(x => x.PublicationId == id);
+            return removed == 0 ? NotFound("Публикация не найдена.") : Ok();
+        }
+    }
+
+    [HttpPost]
+    public IActionResult ToggleFavorite([FromBody] FavoriteToggleModel request)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenUserApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        if (request.PublicationId <= 0)
+        {
+            return BadRequest("PublicationId обязателен.");
+        }
+
+        var currentUserEmail = GetCurrentUserEmail();
+        if (string.IsNullOrWhiteSpace(currentUserEmail))
+        {
+            return Unauthorized();
+        }
+
+        lock (SyncRoot)
+        {
+            var publicationExists = Publications.Any(x => x.Id == request.PublicationId);
+            if (!publicationExists)
+            {
+                return NotFound("Публикация не найдена.");
+            }
+
+            var existing = Favorites.FirstOrDefault(x => x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase) && x.PublicationId == request.PublicationId);
+            if (existing is null)
+            {
+                Favorites.Add(new FavoriteItemModel(currentUserEmail, request.PublicationId));
+                return Ok(new { isFavorite = true });
+            }
+
+            Favorites.Remove(existing);
+            return Ok(new { isFavorite = false });
+        }
+    }
+
+    [HttpGet]
+    public IActionResult FavoriteList()
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenUserApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
+        lock (SyncRoot)
+        {
+            var publicationIds = Favorites.Where(x => x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase)).Select(x => x.PublicationId).ToHashSet();
+            var data = Publications.Where(x => publicationIds.Contains(x.Id)).OrderBy(x => x.Title).ToList();
+            return Ok(data);
+        }
+    }
+
+    [HttpGet]
+    public IActionResult UserReviewList()
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenUserApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
+        lock (SyncRoot)
+        {
+            var data = UserReviews.Where(x => x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase)).OrderByDescending(x => x.CreatedUtc).ToList();
+            return Ok(data);
+        }
+    }
+
+    [HttpPost]
+    public IActionResult CreateUserReview([FromBody] UserReviewUpsertModel request)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenUserApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.PublicationTitle) || string.IsNullOrWhiteSpace(request.ReviewText))
+        {
+            return BadRequest("PublicationTitle и ReviewText обязательны.");
+        }
+
+        var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
+        lock (SyncRoot)
+        {
+            var nextId = UserReviews.Count == 0 ? 1 : UserReviews.Max(x => x.Id) + 1;
+            var review = new UserReviewRecordModel(nextId, currentUserEmail, request.PublicationTitle.Trim(), request.ReviewText.Trim(), request.AttachmentFileName?.Trim(), DateTime.UtcNow);
+            UserReviews.Add(review);
+            return Ok(review);
+        }
+    }
+
+    [HttpPut]
+    public IActionResult UpdateUserReview([FromBody] UserReviewUpsertModel request)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenUserApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        if (request.Id <= 0 || string.IsNullOrWhiteSpace(request.PublicationTitle) || string.IsNullOrWhiteSpace(request.ReviewText))
+        {
+            return BadRequest("Id, PublicationTitle и ReviewText обязательны.");
+        }
+
+        var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
+        lock (SyncRoot)
+        {
+            var index = UserReviews.FindIndex(x => x.Id == request.Id && x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                return NotFound("Рецензия не найдена.");
+            }
+
+            var old = UserReviews[index];
+            UserReviews[index] = old with
+            {
+                PublicationTitle = request.PublicationTitle.Trim(),
+                ReviewText = request.ReviewText.Trim(),
+                AttachmentFileName = request.AttachmentFileName?.Trim()
+            };
+
+            return Ok(UserReviews[index]);
+        }
+    }
+
+    [HttpDelete("{id:int}")]
+    public IActionResult DeleteUserReview(int id)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (TryForbiddenUserApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
+        }
+
+        var currentUserEmail = GetCurrentUserEmail() ?? string.Empty;
+        lock (SyncRoot)
+        {
+            var removed = UserReviews.RemoveAll(x => x.Id == id && x.UserEmail.Equals(currentUserEmail, StringComparison.OrdinalIgnoreCase));
+            Comments.RemoveAll(x => x.ReviewId == id);
+            return removed == 0 ? NotFound("Рецензия не найдена.") : Ok();
+        }
+    }
+
+    [HttpGet("{reviewId:int}")]
+    public IActionResult CommentList(int reviewId)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        lock (SyncRoot)
+        {
+            var data = Comments.Where(x => x.ReviewId == reviewId).OrderByDescending(x => x.CreatedUtc).ToList();
+            return Ok(data);
+        }
+    }
+
+    [HttpPost]
+    public IActionResult AddComment([FromBody] ReviewCommentCreateModel request)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (request.ReviewId <= 0 || string.IsNullOrWhiteSpace(request.Text))
+        {
+            return BadRequest("ReviewId и Text обязательны.");
+        }
+
+        var author = HttpContext.Session.GetString(SessionFullNameKey) ?? GetCurrentUserEmail() ?? "Пользователь";
+        lock (SyncRoot)
+        {
+            if (!UserReviews.Any(x => x.Id == request.ReviewId))
+            {
+                return NotFound("Рецензия не найдена.");
+            }
+
+            var nextId = Comments.Count == 0 ? 1 : Comments.Max(x => x.Id) + 1;
+            var comment = new ReviewCommentItemModel(nextId, request.ReviewId, author, request.Text.Trim(), DateTime.UtcNow);
+            Comments.Add(comment);
+            return Ok(comment);
         }
     }
 
@@ -295,6 +714,11 @@ public class HomeController : Controller
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
             return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
         }
 
         if (dateFrom.HasValue && dateTo.HasValue && dateFrom.Value.Date > dateTo.Value.Date)
@@ -316,14 +740,14 @@ public class HomeController : Controller
             if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
             {
                 var csv = new StringBuilder();
-                csv.AppendLine("TaskId;PublicationId;Title;Author;Type;State;Reviewer;DeadlineUtc;CreatedUtc");
+                csv.AppendLine("Идентификатор задачи;Идентификатор издания;Название;Автор;Тип издания;Статус;Рецензент;Срок;Дата создания");
                 foreach (var item in data)
                 {
-                    csv.AppendLine($"{item.Id};{item.PublicationId};{item.Title};{item.AuthorFullName};{item.PublicationType};{item.State};{item.ReviewerEmail ?? string.Empty};{item.DeadlineUtc:O};{item.CreatedUtc:O}");
+                    csv.AppendLine($"{item.Id};{item.PublicationId};{item.Title};{item.AuthorFullName};{item.PublicationType};{ToRussianState(item.State)};{item.ReviewerEmail ?? string.Empty};{item.DeadlineUtc:dd.MM.yyyy HH:mm};{item.CreatedUtc:dd.MM.yyyy HH:mm}");
                 }
 
-                var bytes = Encoding.UTF8.GetBytes(csv.ToString());
-                return File(bytes, "text/csv", $"review-report-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
+                var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+                return File(bytes, "text/csv; charset=utf-8", $"review-report-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
             }
 
             var summary = new
@@ -336,7 +760,7 @@ public class HomeController : Controller
                 rejected = data.Count(x => x.State == ReviewWorkflowState.Rejected)
             };
 
-            return Ok(new { summary, items = data });
+            return Ok(new { summary, items = data.Select(MapReviewTaskForOutput).ToList() });
         }
     }
 
@@ -346,6 +770,11 @@ public class HomeController : Controller
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
             return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
         }
 
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.AuthorFullName) || string.IsNullOrWhiteSpace(request.PublicationType))
@@ -371,6 +800,7 @@ public class HomeController : Controller
                 DateTime.UtcNow);
 
             ReviewQueue.Add(item);
+            Publications.Add(new PublicationCatalogItemModel(nextPublicationId, request.Title.Trim(), request.AuthorFullName.Trim(), request.PublicationType.Trim(), "Передано на рецензирование"));
 
             _logger.LogInformation("Publication {PublicationId} created and added to review queue", nextPublicationId);
             return CreatedAtAction(nameof(GetReviewTaskById), new { id = item.Id }, item);
@@ -388,7 +818,7 @@ public class HomeController : Controller
         lock (SyncRoot)
         {
             var item = ReviewQueue.FirstOrDefault(x => x.Id == id);
-            return item is null ? NotFound() : Ok(item);
+            return item is null ? NotFound() : Ok(MapReviewTaskForOutput(item));
         }
     }
 
@@ -398,6 +828,11 @@ public class HomeController : Controller
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
             return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
         }
 
         if (request.TaskId <= 0 || string.IsNullOrWhiteSpace(request.ReviewerEmail))
@@ -422,7 +857,7 @@ public class HomeController : Controller
             };
 
             ReviewQueue[idx] = updated;
-            return Ok(updated);
+            return Ok(MapReviewTaskForOutput(updated));
         }
     }
 
@@ -432,6 +867,11 @@ public class HomeController : Controller
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
             return unauthorizedResult;
+        }
+
+        if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
+        {
+            return forbiddenResult;
         }
 
         if (request.TaskId <= 0)
@@ -455,11 +895,45 @@ public class HomeController : Controller
             };
 
             ReviewQueue[idx] = updated;
-            return Ok(updated);
+            return Ok(MapReviewTaskForOutput(updated));
         }
     }
+
+    private object MapReviewTaskForOutput(ReviewTaskModel task) => new
+    {
+        task.Id,
+        task.PublicationId,
+        task.Title,
+        task.AuthorFullName,
+        task.PublicationType,
+        task.ReviewerEmail,
+        task.DeadlineUtc,
+        task.EditorComment,
+        task.CreatedUtc,
+        StateCode = task.State.ToString(),
+        State = ToRussianState(task.State)
+    };
+
+    private static string ToRussianState(ReviewWorkflowState state) => state switch
+    {
+        ReviewWorkflowState.WaitingForReviewer => "Ожидает назначения рецензента",
+        ReviewWorkflowState.InReview => "В рецензировании",
+        ReviewWorkflowState.RequiresRevision => "Требует доработки",
+        ReviewWorkflowState.Approved => "Одобрено",
+        ReviewWorkflowState.Rejected => "Отклонено",
+        _ => "Не определён"
+    };
+
+    private string GetRoleDisplayName() => IsEmployee() ? "Сотрудник" : "Пользователь";
+
+    private string? GetCurrentUserEmail() => HttpContext.Session.GetString(SessionEmailKey);
+
     private bool IsAuthenticated() =>
             bool.TryParse(HttpContext.Session.GetString(SessionAuthKey), out var isAuth) && isAuth;
+
+    private bool IsEmployee() => string.Equals(HttpContext.Session.GetString(SessionRoleKey), "employee", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsUser() => string.Equals(HttpContext.Session.GetString(SessionRoleKey), "user", StringComparison.OrdinalIgnoreCase);
 
     private bool TryUnauthorizedPageResult(out IActionResult result)
     {
@@ -483,6 +957,55 @@ public class HomeController : Controller
         }
 
         result = Unauthorized(new { message = "Требуется авторизация." });
+        return true;
+    }
+    private bool TryForbiddenEmployeeResult(out IActionResult result)
+    {
+        if (IsEmployee())
+        {
+            result = default!;
+            return false;
+        }
+
+        TempData["Error"] = "Раздел доступен только сотруднику.";
+        result = RedirectToAction(nameof(DashboardPage));
+        return true;
+    }
+
+    private bool TryForbiddenUserResult(out IActionResult result)
+    {
+        if (IsUser())
+        {
+            result = default!;
+            return false;
+        }
+
+        TempData["Error"] = "Раздел доступен только пользователю.";
+        result = RedirectToAction(nameof(DashboardPage));
+        return true;
+    }
+
+    private bool TryForbiddenEmployeeApiResult(out IActionResult result)
+    {
+        if (IsEmployee())
+        {
+            result = default!;
+            return false;
+        }
+
+        result = Forbid();
+        return true;
+    }
+
+    private bool TryForbiddenUserApiResult(out IActionResult result)
+    {
+        if (IsUser())
+        {
+            result = default!;
+            return false;
+        }
+
+        result = Forbid();
         return true;
     }
 }

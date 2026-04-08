@@ -1,0 +1,114 @@
+﻿@{
+    ViewData["Title"] = "Каталог изданий";
+    var isEmployee = (ViewBag.IsEmployee as bool?) == true;
+}
+
+<h2>Каталог изданий с рецензиями</h2>
+<div class="row g-2 mb-3">
+    <div class="col-md-4"><input id="searchText" class="form-control" placeholder="Поиск по названию или автору" /></div>
+    <div class="col-md-3"><input id="typeFilter" class="form-control" placeholder="Тип издания" /></div>
+    <div class="col-md-5 d-flex gap-2">
+        <button class="btn btn-secondary" onclick="loadCatalog()">Найти</button>
+    </div>
+</div>
+
+@if (isEmployee)
+{
+    <div class="card p-3 mb-3">
+        <h5>CRUD изданий (сотрудник)</h5>
+        <div class="row g-2">
+            <div class="col-md-2"><input id="pubId" type="number" class="form-control" placeholder="ID для обновления" /></div>
+            <div class="col-md-3"><input id="pubTitle" class="form-control" placeholder="Название" /></div>
+            <div class="col-md-2"><input id="pubAuthor" class="form-control" placeholder="Автор" /></div>
+            <div class="col-md-2"><input id="pubType" class="form-control" placeholder="Тип" /></div>
+            <div class="col-md-3"><input id="pubSummary" class="form-control" placeholder="Итог рецензии" /></div>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+            <button class="btn btn-success" onclick="createPublication()">Создать</button>
+            <button class="btn btn-primary" onclick="updatePublication()">Обновить</button>
+            <button class="btn btn-danger" onclick="deletePublication()">Удалить</button>
+        </div>
+    </div>
+}
+
+<table class="table table-striped">
+    <thead><tr><th>ID</th><th>Название</th><th>Автор</th><th>Тип</th><th>Рецензия</th><th></th></tr></thead>
+    <tbody id="catalogBody"></tbody>
+</table>
+
+@section Scripts {
+    <script>
+        const isEmployee = @isEmployee.ToString().ToLowerInvariant();
+
+        function query() {
+            const params = new URLSearchParams();
+            const search = document.getElementById('searchText').value;
+            const type = document.getElementById('typeFilter').value;
+            if (search) params.append('search', search);
+            if (type) params.append('publicationType', type);
+            return params.toString();
+        }
+
+        async function loadCatalog() {
+            const response = await fetch(`/Home/GetCatalog${query() ? `?${query()}` : ''}`);
+            if (!response.ok) return alert('Ошибка загрузки каталога.');
+            const data = await response.json();
+            const body = document.getElementById('catalogBody');
+            body.innerHTML = '';
+            data.forEach(item => {
+                const action = isEmployee
+                    ? `<span class='text-muted'>CRUD через форму выше</span>`
+                    : `<button class='btn btn-sm ${item.isFavorite ? 'btn-warning' : 'btn-outline-warning'}' onclick='toggleFavorite(${item.id})'>${item.isFavorite ? '★ В избранном' : '☆ В избранное'}</button>`;
+                body.innerHTML += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.reviewSummary}</td><td>${action}</td></tr>`;
+            });
+        }
+
+        async function toggleFavorite(publicationId) {
+            const response = await fetch('/Home/ToggleFavorite', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ publicationId })
+            });
+            if (!response.ok) return alert('Не удалось обновить избранное.');
+            loadCatalog();
+        }
+
+        async function createPublication() {
+            const payload = {
+                title: document.getElementById('pubTitle').value,
+                authorFullName: document.getElementById('pubAuthor').value,
+                publicationType: document.getElementById('pubType').value,
+                editorComment: document.getElementById('pubSummary').value
+            };
+            const response = await fetch('/Home/CreatePublication', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (!response.ok) return alert(await response.text());
+            loadCatalog();
+        }
+
+        async function updatePublication() {
+            const payload = {
+                id: Number(document.getElementById('pubId').value),
+                title: document.getElementById('pubTitle').value,
+                authorFullName: document.getElementById('pubAuthor').value,
+                publicationType: document.getElementById('pubType').value,
+                reviewSummary: document.getElementById('pubSummary').value
+            };
+            const response = await fetch('/Home/UpdatePublication', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (!response.ok) return alert(await response.text());
+            loadCatalog();
+        }
+
+        async function deletePublication() {
+            const id = Number(document.getElementById('pubId').value);
+            if (!id) return alert('Укажите ID для удаления');
+            const response = await fetch(`/Home/DeletePublication/${id}`, { method: 'DELETE' });
+            if (!response.ok) return alert(await response.text());
+            loadCatalog();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadCatalog);
+    </script>
+}

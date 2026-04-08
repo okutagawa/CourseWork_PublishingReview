@@ -1,0 +1,105 @@
+﻿@{
+    ViewData["Title"] = "Мои рецензии";
+}
+
+<h2>Мои рецензии (CRUD + вложение + комментарии)</h2>
+
+<div class="card p-3 mb-3">
+    <div class="row g-2">
+        <div class="col-md-2"><input id="reviewId" type="number" class="form-control" placeholder="ID (для ред.)" /></div>
+        <div class="col-md-4"><input id="publicationTitle" class="form-control" placeholder="Название издания" /></div>
+        <div class="col-md-3"><input id="attachmentFile" type="file" class="form-control" /></div>
+        <div class="col-md-3"><button class="btn btn-success w-100" onclick="createReview()">Создать</button></div>
+    </div>
+    <div class="mt-2"><textarea id="reviewText" class="form-control" rows="3" placeholder="Текст рецензии"></textarea></div>
+    <div class="mt-2 d-flex gap-2">
+        <button class="btn btn-primary" onclick="updateReview()">Обновить</button>
+        <button class="btn btn-danger" onclick="deleteReview()">Удалить</button>
+    </div>
+</div>
+
+<table class="table table-striped">
+    <thead><tr><th>ID</th><th>Издание</th><th>Рецензия</th><th>Файл</th><th>Комментарии</th></tr></thead>
+    <tbody id="reviewBody"></tbody>
+</table>
+
+@section Scripts {
+    <script>
+        function getAttachmentName() {
+            const input = document.getElementById('attachmentFile');
+            return input.files.length ? input.files[0].name : null;
+        }
+
+        async function loadReviews() {
+            const response = await fetch('/Home/UserReviewList');
+            if (!response.ok) return alert('Не удалось загрузить список рецензий.');
+            const data = await response.json();
+            const body = document.getElementById('reviewBody');
+            body.innerHTML = '';
+            for (const item of data) {
+                const comments = await fetch(`/Home/CommentList/${item.id}`).then(r => r.json());
+                const commentHtml = comments.map(c => `<div><b>${c.authorName}</b>: ${c.text}</div>`).join('') || '<span class="text-muted">Нет</span>';
+                body.innerHTML += `<tr>
+                    <td>${item.id}</td>
+                    <td>${item.publicationTitle}</td>
+                    <td>${item.reviewText}</td>
+                    <td>${item.attachmentFileName ?? '—'}</td>
+                    <td>
+                        ${commentHtml}
+                        <div class='mt-2 d-flex gap-1'>
+                            <input id='comment-${item.id}' class='form-control form-control-sm' placeholder='Комментарий' />
+                            <button class='btn btn-sm btn-outline-secondary' onclick='addComment(${item.id})'>Добавить</button>
+                        </div>
+                    </td>
+                </tr>`;
+            }
+        }
+
+        async function createReview() {
+            const payload = {
+                publicationTitle: document.getElementById('publicationTitle').value,
+                reviewText: document.getElementById('reviewText').value,
+                attachmentFileName: getAttachmentName()
+            };
+            const response = await fetch('/Home/CreateUserReview', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (!response.ok) return alert(await response.text());
+            loadReviews();
+        }
+
+        async function updateReview() {
+            const payload = {
+                id: Number(document.getElementById('reviewId').value),
+                publicationTitle: document.getElementById('publicationTitle').value,
+                reviewText: document.getElementById('reviewText').value,
+                attachmentFileName: getAttachmentName()
+            };
+            const response = await fetch('/Home/UpdateUserReview', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            });
+            if (!response.ok) return alert(await response.text());
+            loadReviews();
+        }
+
+        async function deleteReview() {
+            const id = Number(document.getElementById('reviewId').value);
+            if (!id) return alert('Укажите ID рецензии для удаления.');
+            const response = await fetch(`/Home/DeleteUserReview/${id}`, { method: 'DELETE' });
+            if (!response.ok) return alert(await response.text());
+            loadReviews();
+        }
+
+        async function addComment(reviewId) {
+            const text = document.getElementById(`comment-${reviewId}`).value;
+            if (!text) return;
+            const response = await fetch('/Home/AddComment', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewId, text })
+            });
+            if (!response.ok) return alert(await response.text());
+            loadReviews();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadReviews);
+    </script>
+}

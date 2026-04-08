@@ -1,0 +1,28 @@
+﻿@{
+    ViewData["Title"] = "Избранное";
+}
+
+<h2>Избранные издания</h2>
+<p class="text-muted">Здесь отображаются публикации, которые пользователь отметил как избранные в каталоге.</p>
+
+<table class="table table-striped">
+    <thead><tr><th>ID</th><th>Название</th><th>Автор</th><th>Тип</th><th>Статус рецензии</th></tr></thead>
+    <tbody id="favoriteBody"></tbody>
+</table>
+
+@section Scripts {
+    <script>
+        async function loadFavorites() {
+            const response = await fetch('/Home/FavoriteList');
+            if (!response.ok) return alert('Не удалось загрузить избранное.');
+            const data = await response.json();
+            const body = document.getElementById('favoriteBody');
+            body.innerHTML = '';
+            data.forEach(item => {
+                body.innerHTML += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.reviewSummary}</td></tr>`;
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', loadFavorites);
+    </script>
+}
