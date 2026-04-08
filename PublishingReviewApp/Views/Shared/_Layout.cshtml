@@ -1,35 +1,69 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@using PublishingReviewDataModels.Enums
+<!DOCTYPE html>
+<html lang="ru">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - PublishingReviewApp</title>
+    <title>@ViewData["Title"] - Модуль рецензирования издательства</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/PublishingReviewApp.styles.css" asp-append-version="true" />
+    <style>
+        body {
+            background-color: #f7f3ed;
+            color: #3f3127;
+        }
+
+        .navbar {
+            background-color: #b78e5f !important;
+        }
+
+        .navbar-brand, .nav-link {
+            color: #fff8ef !important;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            background-color: #8a5c3b;
+            border-color: #8a5c3b;
+        }
+
+        .btn-primary:hover,
+        .btn-secondary:hover {
+            background-color: #74482b;
+            border-color: #74482b;
+        }
+
+        .card {
+            border: 1px solid #d8bf9e;
+        }
+    </style>
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">PublishingReviewApp</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+        <nav class="navbar navbar-expand-lg mb-3 shadow-sm">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index">Издательство: рецензирование</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
-                        </li>
+                <div class="collapse navbar-collapse" id="mainNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Index">Главная</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="DashboardPage">Панель рецензирования</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReviewQueuePage">Очередь рецензий</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="CreatePublicationPage">Новая рукопись</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReportPage">Отчёты</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Privacy">Профиль</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Enter">Вход</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Register">Регистрация</a></li>
                     </ul>
                 </div>
             </div>
         </nav>
     </header>
+
     <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
@@ -38,7 +72,7 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - PublishingReviewApp - <a asp-area="" asp-page="/Privacy">Privacy</a>
+            &copy; 2026 - Модуль рецензирования издательства
         </div>
     </footer>
 

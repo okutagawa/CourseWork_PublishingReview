@@ -1,0 +1,12 @@
+﻿@{
+    ViewData["Title"] = "Отчёты";
+}
+
+<h2>Отчёт по задачам рецензирования</h2>
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><label class="form-label">Период от</label><input type="date" id="dateFrom" class="form-control"></div>
+    <div class="col-md-4"><label class="form-label">Период до</label><input type="date" id="dateTo" class="form-control"></div>
+    <div class="col-md-4 d-flex align-items-end"><button class="btn btn-secondary" onclick="alert('Подключите endpoint генерации отчётов в HomeController')">Сформировать отчёт</button></div>
+</div>
+
+<div class="alert alert-info">Шаблон страницы готов. Можно подключить экспорт в PDF/Excel через существующую бизнес-логику.</div>

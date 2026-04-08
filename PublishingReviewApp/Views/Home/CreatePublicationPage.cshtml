@@ -1,0 +1,39 @@
+﻿@{
+    ViewData["Title"] = "Новая рукопись";
+}
+
+<h2>Регистрация рукописи для рецензирования</h2>
+<form id="createPublicationForm" class="w-75">
+    <div class="mb-3"><label class="form-label">Название</label><input name="title" class="form-control" required /></div>
+    <div class="mb-3"><label class="form-label">ФИО автора</label><input name="authorFullName" class="form-control" required /></div>
+    <div class="mb-3"><label class="form-label">Тип публикации</label><input name="publicationType" class="form-control" placeholder="Монография / статья / пособие" required /></div>
+    <div class="mb-3"><label class="form-label">Комментарий редактора</label><textarea name="editorComment" class="form-control"></textarea></div>
+    <button class="btn btn-secondary" type="submit">Отправить в очередь</button>
+</form>
+<div id="createResult" class="alert alert-success mt-3 d-none"></div>
+
+@section Scripts {
+    <script>
+        const form = document.getElementById('createPublicationForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = Object.fromEntries(new FormData(form).entries());
+            const response = await fetch('/Home/CreatePublicationForReview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                alert('Не удалось создать запись. Проверьте поля.');
+                return;
+            }
+
+            const created = await response.json();
+            const result = document.getElementById('createResult');
+            result.classList.remove('d-none');
+            result.textContent = `Рукопись #${created.id} добавлена в очередь рецензирования.`;
+            form.reset();
+        });
+    </script>
+}

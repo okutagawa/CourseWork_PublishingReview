@@ -1,0 +1,52 @@
+﻿@{
+    ViewData["Title"] = "Очередь рецензий";
+}
+
+<h2>Очередь рецензирования</h2>
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <label class="form-label">Статус</label>
+        <select id="stateFilter" class="form-select">
+            <option value="">Все</option>
+            <option value="WaitingForReviewer">Ожидает рецензента</option>
+            <option value="InReview">В рецензировании</option>
+            <option value="RequiresRevision">Требует доработки</option>
+            <option value="Approved">Одобрено</option>
+            <option value="Rejected">Отклонено</option>
+        </select>
+    </div>
+    <div class="col-md-8 d-flex align-items-end">
+        <button class="btn btn-secondary" onclick="loadQueue()">Обновить</button>
+    </div>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Рукопись</th>
+            <th>Автор</th>
+            <th>Тип</th>
+            <th>Статус</th>
+            <th>Рецензент</th>
+            <th>Дедлайн</th>
+        </tr>
+    </thead>
+    <tbody id="queueTable"></tbody>
+</table>
+
+@section Scripts {
+    <script>
+        async function loadQueue() {
+            const state = document.getElementById('stateFilter').value;
+            const url = state ? `/Home/ReviewQueueList?state=${state}` : '/Home/ReviewQueueList';
+            const data = await fetch(url).then(r => r.json());
+            const body = document.getElementById('queueTable');
+            body.innerHTML = '';
+            data.forEach(item => {
+                body.innerHTML += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.state}</td><td>${item.reviewerEmail ?? '—'}</td><td>${item.deadlineUtc ? new Date(item.deadlineUtc).toLocaleDateString() : '—'}</td></tr>`;
+            });
+        }
+        document.addEventListener('DOMContentLoaded', loadQueue);
+    </script>
+}

@@ -1,0 +1,15 @@
+﻿@{
+    ViewData["Title"] = "Панель рецензирования";
+}
+
+<h2>Оперативная панель</h2>
+<div class="row g-3 mb-3">
+    <div class="col-md-2"><div class="card p-3"><small>Публикаций</small><h4>@(ViewBag.TotalPublications ?? 0)</h4></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>Ожидают рецензента</small><h4>@(ViewBag.WaitingForReviewer ?? 0)</h4></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>В работе</small><h4>@(ViewBag.InReview ?? 0)</h4></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>На доработке</small><h4>@(ViewBag.RequiresRevision ?? 0)</h4></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>Одобрено</small><h4>@(ViewBag.Approved ?? 0)</h4></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>Отклонено</small><h4>@(ViewBag.Rejected ?? 0)</h4></div></div>
+</div>
+
+<p class="text-muted">Значения могут поступать из API <code>/Home/Dashboard</code> и отображаться на этой странице через контроллер.</p>

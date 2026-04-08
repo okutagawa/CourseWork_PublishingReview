@@ -24,10 +24,47 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public IActionResult Index()
+    public IActionResult Index() => View();
+
+    [HttpGet]
+    public IActionResult Enter() => View();
+
+    [HttpGet]
+    public IActionResult Register() => View();
+
+    [HttpGet]
+    public IActionResult Privacy() => View();
+
+    [HttpGet]
+    public IActionResult DashboardPage()
     {
-        return RedirectToAction(nameof(Dashboard));
+        lock (SyncRoot)
+        {
+            ViewBag.TotalPublications = ReviewQueue.Select(x => x.PublicationId).Distinct().Count();
+            ViewBag.WaitingForReviewer = ReviewQueue.Count(x => x.State == ReviewWorkflowState.WaitingForReviewer);
+            ViewBag.InReview = ReviewQueue.Count(x => x.State == ReviewWorkflowState.InReview);
+            ViewBag.RequiresRevision = ReviewQueue.Count(x => x.State == ReviewWorkflowState.RequiresRevision);
+            ViewBag.Approved = ReviewQueue.Count(x => x.State == ReviewWorkflowState.Approved);
+            ViewBag.Rejected = ReviewQueue.Count(x => x.State == ReviewWorkflowState.Rejected);
+        }
+
+        return View();
     }
+
+    [HttpGet]
+    public IActionResult ReviewQueuePage() => View();
+
+    [HttpGet]
+    public IActionResult CreatePublicationPage() => View();
+
+    [HttpGet]
+    public IActionResult AssignReviewerPage() => View();
+
+    [HttpGet]
+    public IActionResult SubmitDecisionPage() => View();
+
+    [HttpGet]
+    public IActionResult ReportPage() => View();
 
     [HttpGet]
     public IActionResult Dashboard()

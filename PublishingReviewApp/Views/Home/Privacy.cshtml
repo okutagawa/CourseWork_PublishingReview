@@ -1,6 +1,20 @@
 ﻿@{
-    ViewData["Title"] = "Конфиденциальность";
+    ViewData["Title"] = "Профиль пользователя";
 }
 
-<h1>@ViewData["Title"]</h1>
-<p>Эта страница предназначена для описания политики обработки персональных данных в PublishingReviewApp.</p>
+<h2>Личные данные участника издательского процесса</h2>
+<form method="post" class="w-75">
+    <div class="mb-3">
+        <label class="form-label">ФИО</label>
+        <input type="text" class="form-control" name="fullName" placeholder="Введите ФИО" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Электронная почта</label>
+        <input type="email" class="form-control" name="email" placeholder="Введите email" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Должность / роль</label>
+        <input type="text" class="form-control" name="position" placeholder="Редактор, рецензент, автор" />
+    </div>
+    <button class="btn btn-secondary" type="submit">Сохранить изменения</button>
+</form>

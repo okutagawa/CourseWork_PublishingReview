@@ -1,0 +1,18 @@
+﻿@{
+    ViewData["Title"] = "Решение по рецензии";
+}
+
+<h2>Фиксация результата рецензирования</h2>
+<form id="decisionForm" class="w-50">
+    <div class="mb-3"><label class="form-label">ID задачи</label><input type="number" name="taskId" class="form-control" required /></div>
+    <div class="mb-3">
+        <label class="form-label">Решение</label>
+        <select name="decision" class="form-select">
+            <option value="Approved">Одобрить</option>
+            <option value="RequiresRevision">На доработку</option>
+            <option value="Rejected">Отклонить</option>
+        </select>
+    </div>
+    <div class="mb-3"><label class="form-label">Комментарий</label><textarea name="comment" class="form-control"></textarea></div>
+    <button class="btn btn-secondary">Сохранить решение</button>
+</form>

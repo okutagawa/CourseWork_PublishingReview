@@ -6,4 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\PublishingReviewBusinessLogic\PublishingReviewBusinessLogic.csproj" />
+    <ProjectReference Include="..\PublishingReviewContracts\PublishingReviewContracts.csproj" />
+    <ProjectReference Include="..\PublishingReviewDatabaseImplements\PublishingReviewDatabaseImplements.csproj" />
+    <ProjectReference Include="..\PublishingReviewDataModels\PublishingReviewDataModels.csproj" />
+    <ProjectReference Include="..\PublishingReviewRestApi\PublishingReviewRestApi.csproj" />
+  </ItemGroup>
+
 </Project>

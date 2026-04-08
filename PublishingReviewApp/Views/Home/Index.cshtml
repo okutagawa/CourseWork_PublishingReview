@@ -4,23 +4,36 @@
 }
 
 <div class="text-center mb-4">
-    <h1 class="display-5">@Model.ProjectName</h1>
-    <p class="text-muted">Веб-приложение для публикаций и рецензирования.</p>
+    <h1 class="display-5">Проектирование и разработка модуля рецензирования для издательства</h1>
+    <p class="lead">Учебный веб-модуль для управления рукописями, назначением рецензентов и фиксацией решений по публикациям.</p>
 </div>
 
-<div class="row row-cols-1 row-cols-md-2 g-3">
-    @foreach (var publication in Model.Publications)
-    {
-        <div class="col">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">@publication.Title</h5>
-                    <p class="card-text mb-1"><strong>Категория:</strong> @publication.Category</p>
-                    <p class="card-text mb-1"><strong>Автор:</strong> @publication.Author</p>
-                    <p class="card-text mb-1"><strong>Рейтинг:</strong> @publication.AverageRating</p>
-                    <p class="card-text text-muted mb-0">Создано: @publication.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</p>
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">1. Приём рукописей</h5>
+                <p class="card-text">Редактор вносит новую публикацию и отправляет её в очередь рецензирования.</p>
+                <a asp-controller="Home" asp-action="CreatePublicationPage" class="btn btn-secondary">Создать карточку</a>
                 </div>
             </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">2. Назначение экспертов</h5>
+                <p class="card-text">Назначение рецензента, установка дедлайна и контроль загрузки редакции.</p>
+                <a asp-controller="Home" asp-action="ReviewQueuePage" class="btn btn-secondary">Открыть очередь</a>
+            </div>
         </div>
-    }
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">3. Итоговое решение</h5>
+                <p class="card-text">Фиксация статуса: одобрено, на доработку или отклонено, плюс отчётность.</p>
+                <a asp-controller="Home" asp-action="ReportPage" class="btn btn-secondary">Перейти к отчётам</a>
+            </div>
+        </div>
+    </div>
 </div>
