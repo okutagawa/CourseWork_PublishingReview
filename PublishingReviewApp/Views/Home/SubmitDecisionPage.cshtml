@@ -14,5 +14,37 @@
         </select>
     </div>
     <div class="mb-3"><label class="form-label">Комментарий</label><textarea name="comment" class="form-control"></textarea></div>
-    <button class="btn btn-secondary">Сохранить решение</button>
+    <button class="btn btn-secondary" type="submit">Сохранить решение</button>
 </form>
+<div id="decisionResult" class="alert mt-3 d-none"></div>
+
+@section Scripts {
+    <script>
+        const form = document.getElementById('decisionForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = Object.fromEntries(new FormData(form).entries());
+            payload.taskId = Number(payload.taskId);
+
+            const response = await fetch('/Home/SubmitReviewResult', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = document.getElementById('decisionResult');
+            result.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+            if (!response.ok) {
+                result.classList.add('alert-danger');
+                result.textContent = await response.text();
+                return;
+            }
+
+            const data = await response.json();
+            result.classList.add('alert-success');
+            result.textContent = `Решение для задачи #${data.id} сохранено. Новый статус: ${data.state}.`;
+            form.reset();
+        });
+    </script>
+}

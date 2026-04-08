@@ -9,4 +9,5 @@ public record ReviewTaskModel(
     ReviewWorkflowState State,
     string? ReviewerEmail,
     DateTime? DeadlineUtc,
-    string? EditorComment);
+    string? EditorComment,
+    DateTime CreatedUtc);

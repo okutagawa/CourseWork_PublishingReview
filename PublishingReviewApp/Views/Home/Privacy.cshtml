@@ -2,19 +2,10 @@
     ViewData["Title"] = "Профиль пользователя";
 }
 
-<h2>Личные данные участника издательского процесса</h2>
-<form method="post" class="w-75">
-    <div class="mb-3">
-        <label class="form-label">ФИО</label>
-        <input type="text" class="form-control" name="fullName" placeholder="Введите ФИО" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Электронная почта</label>
-        <input type="email" class="form-control" name="email" placeholder="Введите email" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Должность / роль</label>
-        <input type="text" class="form-control" name="position" placeholder="Редактор, рецензент, автор" />
-    </div>
-    <button class="btn btn-secondary" type="submit">Сохранить изменения</button>
-</form>
+<h2>Профиль участника издательского процесса</h2>
+
+<div class="card w-75 p-3">
+    <p class="mb-2"><strong>ФИО:</strong> @ViewBag.UserFullName</p>
+    <p class="mb-2"><strong>Email:</strong> @ViewBag.UserEmail</p>
+    <p class="mb-0"><strong>Роль:</strong> @ViewBag.UserRole</p>
+</div>

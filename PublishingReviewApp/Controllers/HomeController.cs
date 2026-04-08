@@ -1,19 +1,32 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Text;
+using Microsoft.AspNetCore.Mvc;
 using PublishingReviewApp.Models;
-using PublishingReviewDataModels.Enums;
 
 namespace PublishingReviewApp.Controllers;
 
 [Route("[controller]/[action]")]
 public class HomeController : Controller
 {
+    private const string SessionAuthKey = "IsAuthenticated";
+    private const string SessionEmailKey = "UserEmail";
+    private const string SessionFullNameKey = "UserFullName";
+    private const string SessionRoleKey = "UserRole";
+
     private static readonly object SyncRoot = new();
+
+    private static readonly List<UserAccountModel> Users =
+    [
+        new UserAccountModel("Главный редактор", "editor@publisher.local", "editor123", "editor", "Редакция"),
+        new UserAccountModel("Тестовый рецензент", "reviewer@publisher.local", "reviewer123", "reviewer", "Внешний эксперт"),
+        new UserAccountModel("Тестовый автор", "author@publisher.local", "author123", "author", "Университет")
+    ];
+
 
     private static readonly List<ReviewTaskModel> ReviewQueue =
     [
-        new ReviewTaskModel(1, 101, "Методы автоматической вёрстки", "И.И. Иванов", "Научная статья", ReviewWorkflowState.WaitingForReviewer, null, null, null),
-        new ReviewTaskModel(2, 102, "Редакционный цикл издательства", "П.П. Петров", "Монография", ReviewWorkflowState.InReview, "expert@publisher.local", DateTime.UtcNow.AddDays(5), null),
-        new ReviewTaskModel(3, 103, "Проверка корректуры", "А.А. Сидоров", "Учебное пособие", ReviewWorkflowState.RequiresRevision, "reviewer@publisher.local", DateTime.UtcNow.AddDays(-2), "Нужно доработать ссылки и библиографию")
+        new ReviewTaskModel(1, 101, "Методы автоматической вёрстки", "И.И. Иванов", "Научная статья", ReviewWorkflowState.WaitingForReviewer, null, null, null, DateTime.UtcNow.AddDays(-8)),
+        new ReviewTaskModel(2, 102, "Редакционный цикл издательства", "П.П. Петров", "Монография", ReviewWorkflowState.InReview, "expert@publisher.local", DateTime.UtcNow.AddDays(5), null, DateTime.UtcNow.AddDays(-4)),
+        new ReviewTaskModel(3, 103, "Проверка корректуры", "А.А. Сидоров", "Учебное пособие", ReviewWorkflowState.RequiresRevision, "reviewer@publisher.local", DateTime.UtcNow.AddDays(-2), "Нужно доработать ссылки и библиографию", DateTime.UtcNow.AddDays(-2))
     ];
 
     private readonly ILogger<HomeController> _logger;
@@ -27,17 +40,138 @@ public class HomeController : Controller
     public IActionResult Index() => View();
 
     [HttpGet]
-    public IActionResult Enter() => View();
+    public IActionResult Enter()
+    {
+        if (IsAuthenticated())
+        {
+            return RedirectToAction(nameof(DashboardPage));
+        }
+
+        ViewBag.Error = TempData["Error"];
+        ViewBag.Success = TempData["Success"];
+        return View();
+    }
+
+    [HttpPost]
+    public IActionResult Enter(LoginRequestModel request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            TempData["Error"] = "Введите email и пароль.";
+            return RedirectToAction(nameof(Enter));
+        }
+
+        UserAccountModel? user;
+        lock (SyncRoot)
+        {
+            user = Users.FirstOrDefault(x =>
+                x.Email.Equals(request.Email.Trim(), StringComparison.OrdinalIgnoreCase)
+                && x.Password == request.Password);
+        }
+
+        if (user is null)
+        {
+            TempData["Error"] = "Неверный email или пароль.";
+            return RedirectToAction(nameof(Enter));
+        }
+
+        HttpContext.Session.SetString(SessionAuthKey, bool.TrueString);
+        HttpContext.Session.SetString(SessionEmailKey, user.Email);
+        HttpContext.Session.SetString(SessionFullNameKey, user.FullName);
+        HttpContext.Session.SetString(SessionRoleKey, user.Role);
+
+        return RedirectToAction(nameof(DashboardPage));
+    }
 
     [HttpGet]
-    public IActionResult Register() => View();
+    public IActionResult Register()
+    {
+        if (IsAuthenticated())
+        {
+            return RedirectToAction(nameof(DashboardPage));
+        }
+
+        ViewBag.Error = TempData["Error"];
+        ViewBag.Success = TempData["Success"];
+        return View();
+    }
+
+    [HttpPost]
+    public IActionResult Register(RegisterRequestModel request)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName)
+            || string.IsNullOrWhiteSpace(request.Email)
+            || string.IsNullOrWhiteSpace(request.Password)
+            || string.IsNullOrWhiteSpace(request.Role))
+        {
+            TempData["Error"] = "Заполните обязательные поля: ФИО, Email, Пароль и Роль.";
+            return RedirectToAction(nameof(Register));
+        }
+
+        if (request.Password.Trim().Length < 6)
+        {
+            TempData["Error"] = "Пароль должен содержать минимум 6 символов.";
+            return RedirectToAction(nameof(Register));
+        }
+
+        var allowedRoles = new[] { "author", "reviewer", "editor" };
+        var normalizedRole = request.Role.Trim().ToLowerInvariant();
+        if (!allowedRoles.Contains(normalizedRole))
+        {
+            TempData["Error"] = "Некорректная роль пользователя.";
+            return RedirectToAction(nameof(Register));
+        }
+
+        lock (SyncRoot)
+        {
+            if (Users.Any(x => x.Email.Equals(request.Email.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                TempData["Error"] = "Пользователь с таким email уже зарегистрирован.";
+                return RedirectToAction(nameof(Register));
+            }
+
+            Users.Add(new UserAccountModel(
+                request.FullName.Trim(),
+                request.Email.Trim(),
+                request.Password,
+                normalizedRole,
+                request.Organization?.Trim()));
+        }
+
+        TempData["Success"] = "Регистрация выполнена. Теперь войдите в систему.";
+        return RedirectToAction(nameof(Enter));
+    }
 
     [HttpGet]
-    public IActionResult Privacy() => View();
+    public IActionResult Logout()
+    {
+        HttpContext.Session.Clear();
+        return RedirectToAction(nameof(Enter));
+    }
+
+    [HttpGet]
+    public IActionResult Privacy()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        ViewBag.UserEmail = HttpContext.Session.GetString(SessionEmailKey);
+        ViewBag.UserFullName = HttpContext.Session.GetString(SessionFullNameKey);
+        ViewBag.UserRole = HttpContext.Session.GetString(SessionRoleKey);
+
+        return View();
+    }
 
     [HttpGet]
     public IActionResult DashboardPage()
     {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
         lock (SyncRoot)
         {
             ViewBag.TotalPublications = ReviewQueue.Select(x => x.PublicationId).Distinct().Count();
@@ -52,23 +186,68 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public IActionResult ReviewQueuePage() => View();
+    public IActionResult ReviewQueuePage()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        return View();
+    }
 
     [HttpGet]
-    public IActionResult CreatePublicationPage() => View();
+    public IActionResult CreatePublicationPage()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        return View();
+    }
 
     [HttpGet]
-    public IActionResult AssignReviewerPage() => View();
+    public IActionResult AssignReviewerPage()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        return View();
+    }
 
     [HttpGet]
-    public IActionResult SubmitDecisionPage() => View();
+    public IActionResult SubmitDecisionPage()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        return View();
+    }
 
     [HttpGet]
-    public IActionResult ReportPage() => View();
+    public IActionResult ReportPage()
+    {
+        if (TryUnauthorizedPageResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        return View();
+    }
 
     [HttpGet]
     public IActionResult Dashboard()
     {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
         lock (SyncRoot)
         {
             var model = new ReviewDashboardModel
@@ -93,6 +272,11 @@ public class HomeController : Controller
     [HttpGet]
     public IActionResult ReviewQueueList([FromQuery] ReviewWorkflowState? state)
     {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
         lock (SyncRoot)
         {
             var query = ReviewQueue.AsEnumerable();
@@ -105,9 +289,65 @@ public class HomeController : Controller
         }
     }
 
+    [HttpGet]
+    public IActionResult ReportData([FromQuery] DateTime? dateFrom, [FromQuery] DateTime? dateTo, [FromQuery] string format = "json")
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        if (dateFrom.HasValue && dateTo.HasValue && dateFrom.Value.Date > dateTo.Value.Date)
+        {
+            return BadRequest("Дата начала периода не может быть позже даты окончания.");
+        }
+
+        lock (SyncRoot)
+        {
+            var from = dateFrom?.Date;
+            var to = dateTo?.Date.AddDays(1).AddTicks(-1);
+
+            var data = ReviewQueue
+                .Where(x => !from.HasValue || x.CreatedUtc >= from.Value)
+                .Where(x => !to.HasValue || x.CreatedUtc <= to.Value)
+                .OrderByDescending(x => x.CreatedUtc)
+                .ToList();
+
+            if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
+            {
+                var csv = new StringBuilder();
+                csv.AppendLine("TaskId;PublicationId;Title;Author;Type;State;Reviewer;DeadlineUtc;CreatedUtc");
+                foreach (var item in data)
+                {
+                    csv.AppendLine($"{item.Id};{item.PublicationId};{item.Title};{item.AuthorFullName};{item.PublicationType};{item.State};{item.ReviewerEmail ?? string.Empty};{item.DeadlineUtc:O};{item.CreatedUtc:O}");
+                }
+
+                var bytes = Encoding.UTF8.GetBytes(csv.ToString());
+                return File(bytes, "text/csv", $"review-report-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
+            }
+
+            var summary = new
+            {
+                total = data.Count,
+                waiting = data.Count(x => x.State == ReviewWorkflowState.WaitingForReviewer),
+                inReview = data.Count(x => x.State == ReviewWorkflowState.InReview),
+                needsRevision = data.Count(x => x.State == ReviewWorkflowState.RequiresRevision),
+                approved = data.Count(x => x.State == ReviewWorkflowState.Approved),
+                rejected = data.Count(x => x.State == ReviewWorkflowState.Rejected)
+            };
+
+            return Ok(new { summary, items = data });
+        }
+    }
+
     [HttpPost]
     public IActionResult CreatePublicationForReview([FromBody] PublicationReviewCreateModel request)
     {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.AuthorFullName) || string.IsNullOrWhiteSpace(request.PublicationType))
         {
             return BadRequest("Не заполнены обязательные поля: Title, AuthorFullName, PublicationType.");
@@ -127,7 +367,8 @@ public class HomeController : Controller
                 ReviewWorkflowState.WaitingForReviewer,
                 null,
                 null,
-                request.EditorComment?.Trim());
+                request.EditorComment?.Trim(),
+                DateTime.UtcNow);
 
             ReviewQueue.Add(item);
 
@@ -139,6 +380,11 @@ public class HomeController : Controller
     [HttpGet("{id:int}")]
     public IActionResult GetReviewTaskById(int id)
     {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
         lock (SyncRoot)
         {
             var item = ReviewQueue.FirstOrDefault(x => x.Id == id);
@@ -149,6 +395,11 @@ public class HomeController : Controller
     [HttpPost]
     public IActionResult AssignReviewer([FromBody] ReviewerAssignmentModel request)
     {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
         if (request.TaskId <= 0 || string.IsNullOrWhiteSpace(request.ReviewerEmail))
         {
             return BadRequest("TaskId и ReviewerEmail обязательны.");
@@ -178,6 +429,11 @@ public class HomeController : Controller
     [HttpPost]
     public IActionResult SubmitReviewResult([FromBody] ReviewDecisionModel request)
     {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
         if (request.TaskId <= 0)
         {
             return BadRequest("TaskId обязателен.");
@@ -201,5 +457,32 @@ public class HomeController : Controller
             ReviewQueue[idx] = updated;
             return Ok(updated);
         }
+    }
+    private bool IsAuthenticated() =>
+            bool.TryParse(HttpContext.Session.GetString(SessionAuthKey), out var isAuth) && isAuth;
+
+    private bool TryUnauthorizedPageResult(out IActionResult result)
+    {
+        if (IsAuthenticated())
+        {
+            result = default!;
+            return false;
+        }
+
+        TempData["Error"] = "Сначала зарегистрируйтесь или войдите в систему.";
+        result = RedirectToAction(nameof(Enter));
+        return true;
+    }
+
+    private bool TryUnauthorizedApiResult(out IActionResult result)
+    {
+        if (IsAuthenticated())
+        {
+            result = default!;
+            return false;
+        }
+
+        result = Unauthorized(new { message = "Требуется авторизация." });
+        return true;
     }
 }

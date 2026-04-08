@@ -7,5 +7,37 @@
     <div class="mb-3"><label class="form-label">ID задачи</label><input name="taskId" type="number" class="form-control" required /></div>
     <div class="mb-3"><label class="form-label">Email рецензента</label><input name="reviewerEmail" type="email" class="form-control" required /></div>
     <div class="mb-3"><label class="form-label">Дедлайн</label><input name="deadlineUtc" type="date" class="form-control" /></div>
-    <button class="btn btn-secondary">Назначить</button>
+    <button class="btn btn-secondary" type="submit">Назначить</button>
 </form>
+<div id="assignResult" class="alert mt-3 d-none"></div>
+
+@section Scripts {
+    <script>
+        const form = document.getElementById('assignForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = Object.fromEntries(new FormData(form).entries());
+            payload.taskId = Number(payload.taskId);
+
+            const response = await fetch('/Home/AssignReviewer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = document.getElementById('assignResult');
+            result.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+            if (!response.ok) {
+                result.classList.add('alert-danger');
+                result.textContent = await response.text();
+                return;
+            }
+
+            const data = await response.json();
+            result.classList.add('alert-success');
+            result.textContent = `Рецензент ${data.reviewerEmail} назначен на задачу #${data.id}.`;
+            form.reset();
+        });
+    </script>
+}

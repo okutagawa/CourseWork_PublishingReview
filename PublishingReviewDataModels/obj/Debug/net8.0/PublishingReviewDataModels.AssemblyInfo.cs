@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PublishingReviewDataModels")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0c08cec975725da5ccdedb3313b267a2aec94760")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d4a1eb17e425412a089031882710ecc01c22a8aa")]
 [assembly: System.Reflection.AssemblyProductAttribute("PublishingReviewDataModels")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PublishingReviewDataModels")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

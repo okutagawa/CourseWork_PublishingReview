@@ -6,7 +6,63 @@
 <div class="row g-3 mb-3">
     <div class="col-md-4"><label class="form-label">Период от</label><input type="date" id="dateFrom" class="form-control"></div>
     <div class="col-md-4"><label class="form-label">Период до</label><input type="date" id="dateTo" class="form-control"></div>
-    <div class="col-md-4 d-flex align-items-end"><button class="btn btn-secondary" onclick="alert('Подключите endpoint генерации отчётов в HomeController')">Сформировать отчёт</button></div>
+    <div class="col-md-4 d-flex align-items-end gap-2">
+        <button class="btn btn-secondary" id="buildReportBtn" type="button">Сформировать отчёт</button>
+        <button class="btn btn-outline-secondary" id="downloadReportBtn" type="button">CSV</button>
+    </div>
 </div>
 
-<div class="alert alert-info">Шаблон страницы готов. Можно подключить экспорт в PDF/Excel через существующую бизнес-логику.</div>
+<div id="reportSummary" class="alert alert-info d-none"></div>
+<table class="table table-striped d-none" id="reportTable">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Рукопись</th>
+            <th>Автор</th>
+            <th>Статус</th>
+            <th>Дата создания</th>
+        </tr>
+    </thead>
+    <tbody id="reportBody"></tbody>
+</table>
+
+@section Scripts {
+    <script>
+        function buildQueryString() {
+            const from = document.getElementById('dateFrom').value;
+            const to = document.getElementById('dateTo').value;
+            const query = new URLSearchParams();
+            if (from) query.append('dateFrom', from);
+            if (to) query.append('dateTo', to);
+            return query.toString();
+        }
+
+        document.getElementById('buildReportBtn').addEventListener('click', async () => {
+            const query = buildQueryString();
+            const response = await fetch(`/Home/ReportData${query ? `?${query}` : ''}`);
+            if (!response.ok) {
+                alert('Не удалось сформировать отчёт. Проверьте диапазон дат.');
+                return;
+            }
+
+            const data = await response.json();
+            const summary = document.getElementById('reportSummary');
+            summary.classList.remove('d-none');
+            summary.textContent = `Всего: ${data.summary.total}, ожидают: ${data.summary.waiting}, в рецензировании: ${data.summary.inReview}, доработка: ${data.summary.needsRevision}, одобрено: ${data.summary.approved}, отклонено: ${data.summary.rejected}.`;
+
+            const table = document.getElementById('reportTable');
+            const body = document.getElementById('reportBody');
+            table.classList.remove('d-none');
+            body.innerHTML = '';
+            data.items.forEach(item => {
+                body.innerHTML += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.state}</td><td>${new Date(item.createdUtc).toLocaleDateString()}</td></tr>`;
+            });
+        });
+
+        document.getElementById('downloadReportBtn').addEventListener('click', () => {
+            const query = buildQueryString();
+            const link = `/Home/ReportData?${query ? `${query}&` : ''}format=csv`;
+            window.open(link, '_blank');
+        });
+    </script>
+}

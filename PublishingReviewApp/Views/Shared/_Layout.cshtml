@@ -1,4 +1,7 @@
-﻿@using PublishingReviewDataModels.Enums
+﻿﻿@{
+var isAuth = Context.Session.GetString("IsAuthenticated") == bool.TrueString;
+var userName = Context.Session.GetString("UserFullName") ?? "Пользователь";
+}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -44,20 +47,30 @@
         <nav class="navbar navbar-expand-lg mb-3 shadow-sm">
             <div class="container-fluid">
                 <a class="navbar-brand" asp-controller="Home" asp-action="Index">Издательство: рецензирование</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="mainNav">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Index">Главная</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="DashboardPage">Панель рецензирования</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReviewQueuePage">Очередь рецензий</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="CreatePublicationPage">Новая рукопись</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReportPage">Отчёты</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Privacy">Профиль</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Enter">Вход</a></li>
-                        <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Register">Регистрация</a></li>
+
+                        @if (isAuth)
+                        {
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="DashboardPage">Панель рецензирования</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReviewQueuePage">Очередь рецензий</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="CreatePublicationPage">Новая рукопись</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="AssignReviewerPage">Назначение рецензента</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="SubmitDecisionPage">Решение по рецензии</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="ReportPage">Отчёты</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Privacy">@userName</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Logout">Выход</a></li>
+                        }
+                        else
+                        {
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Enter">Вход</a></li>
+                            <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Register">Регистрация</a></li>
+                        }
                     </ul>
                 </div>
             </div>

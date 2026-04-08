@@ -3,16 +3,20 @@
 }
 
 <div class="text-center"><h2 class="display-6">Вход в модуль рецензирования</h2></div>
-<form method="post" class="w-75 mx-auto mt-4">
-    <div class="mb-3">
-        <label class="form-label">Роль</label>
-        <select name="role" class="form-select">
-            <option value="editor">Редактор</option>
-            <option value="reviewer">Рецензент</option>
-            <option value="author">Автор</option>
-        </select>
-    </div>
-    <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" /></div>
-    <div class="mb-3"><label class="form-label">Пароль</label><input type="password" name="password" class="form-control" /></div>
-    <button class="btn btn-secondary">Войти</button>
+
+@if (ViewBag.Error is not null)
+{
+    <div class="alert alert-danger w-75 mx-auto mt-3">@ViewBag.Error</div>
+}
+
+@if (ViewBag.Success is not null)
+{
+    <div class="alert alert-success w-75 mx-auto mt-3">@ViewBag.Success</div>
+}
+
+<form method="post" asp-controller="Home" asp-action="Enter" class="w-75 mx-auto mt-4">
+    <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required /></div>
+    <div class="mb-3"><label class="form-label">Пароль</label><input type="password" name="password" class="form-control" required /></div>
+    <button class="btn btn-secondary" type="submit">Войти</button>
+    <a class="btn btn-link" asp-controller="Home" asp-action="Register">Нет аккаунта? Зарегистрироваться</a>
 </form>
