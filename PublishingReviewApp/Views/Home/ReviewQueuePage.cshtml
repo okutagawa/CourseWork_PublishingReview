@@ -24,9 +24,10 @@
     <div class="col-lg-6">
         <div class="card p-3">
             <h5>Назначение рецензента</h5>
-            <div class="form-text mb-2">Укажите ID рукописи (PublicationId).</div>
+            <div class="form-text mb-2">Выберите рукопись из списка или укажите ее ID (PublicationId).</div>
+            <div class="mb-2"><select id="assignPublicationSelect" class="form-select" onchange="syncAssignPublicationId()"><option value="">Выберите рукопись</option></select></div>
             <div class="row g-2">
-                <div class="col-md-4"><input id="assignTaskId" type="number" class="form-control" placeholder="ID рукописи" /></div>                <div class="col-md-5"><input id="assignReviewerEmail" type="email" class="form-control" placeholder="Email рецензента" /></div>
+                <div class="col-md-4"><input id="assignTaskId" type="number" class="form-control" placeholder="PublicationId (ID рукописи)" /></div>                <div class="col-md-5"><input id="assignReviewerEmail" type="email" class="form-control" placeholder="Email рецензента" /></div>
                 <div class="col-md-3"><input id="assignDeadlineUtc" type="date" class="form-control" /></div>
             </div>
             <button class="btn btn-secondary mt-2" onclick="assignReviewer()">Назначить</button>
@@ -35,9 +36,10 @@
     <div class="col-lg-6">
         <div class="card p-3">
             <h5>Решение по рецензии</h5>
-            <div class="form-text mb-2">Укажите ID задачи рецензии (TaskId), а не ID рукописи.</div>
+            <div class="form-text mb-2">Выберите задачу рецензии или укажите TaskId вручную (это не PublicationId).</div>
+            <div class="mb-2"><select id="decisionTaskSelect" class="form-select" onchange="syncDecisionTaskId()"><option value="">Выберите задачу рецензии</option></select></div>
             <div class="row g-2">
-                <div class="col-md-4"><input id="decisionTaskId" type="number" class="form-control" placeholder="ID задачи рецензии" /></div>                <div class="col-md-4">
+                <div class="col-md-4"><input id="decisionTaskId" type="number" class="form-control" placeholder="TaskId (ID задачи рецензии)" /></div>                <div class="col-md-4">
                     <select id="decisionState" class="form-select">
                         <option value="Approved">Одобрить</option>
                         <option value="RequiresRevision">На доработку</option>
@@ -54,6 +56,7 @@
 <table class="table table-striped">
     <thead>
         <tr>
+            <th>Ключ</th>
             <th>ID задачи</th>
             <th>ID рукописи</th>
             <th>Рукопись</th>
@@ -74,13 +77,38 @@
             const url = state ? `/Home/ReviewQueueList?state=${state}` : '/Home/ReviewQueueList';
             const data = await fetch(url).then(r => r.json());
             const body = document.getElementById('queueTable');
+            const assignSelect = document.getElementById('assignPublicationSelect');
+            const decisionSelect = document.getElementById('decisionTaskSelect');
+            const seenPublicationIds = new Set();
             body.innerHTML = '';
+            assignSelect.innerHTML = '<option value="">Выберите рукопись</option>';
+            decisionSelect.innerHTML = '<option value="">Выберите задачу рецензии</option>';
             data.forEach(item => {
-                body.innerHTML += `<tr><td>${item.taskId}</td><td>${item.publicationId}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.state}</td><td>${item.reviewerEmail ?? '—'}</td><td>${item.deadlineUtc ? new Date(item.deadlineUtc).toLocaleDateString() : '—'}</td></tr>`;            
+                const key = `R-${item.taskId}/P-${item.publicationId}`;
+                body.innerHTML += `<tr><td><code>${key}</code></td><td>${item.taskId}</td><td>${item.publicationId}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.state}</td><td>${item.reviewerEmail ?? '—'}</td><td>${item.deadlineUtc ? new Date(item.deadlineUtc).toLocaleDateString() : '—'}</td></tr>`;
+                if (!seenPublicationIds.has(item.publicationId)) {
+                    assignSelect.innerHTML += `<option value="${item.publicationId}">P-${item.publicationId}: ${item.title}</option>`;
+                    seenPublicationIds.add(item.publicationId);
+                }
+                decisionSelect.innerHTML += `<option value="${item.taskId}">R-${item.taskId}: ${item.title} (${item.state})</option>`;            
             });
         }
 
-                async function assignReviewer() {
+                function syncAssignPublicationId() {
+            const publicationId = document.getElementById('assignPublicationSelect').value;
+            if (publicationId) {
+                document.getElementById('assignTaskId').value = publicationId;
+            }
+        }
+
+        function syncDecisionTaskId() {
+            const taskId = document.getElementById('decisionTaskSelect').value;
+            if (taskId) {
+                document.getElementById('decisionTaskId').value = taskId;
+            }
+        }
+
+        async function assignReviewer() {
             const payload = {
                 taskId: Number(document.getElementById('assignTaskId').value),
                 reviewerEmail: document.getElementById('assignReviewerEmail').value,

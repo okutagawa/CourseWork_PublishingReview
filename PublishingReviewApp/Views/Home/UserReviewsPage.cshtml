@@ -55,10 +55,16 @@
                 const comments = await fetch(`/Home/CommentList/${item.id}`).then(r => r.json());
                 const commentHtml = comments.map(c => `<div><b>${c.authorName}</b>: ${c.text}</div>`).join('') || '<span class="text-muted">Нет</span>';
                 body.innerHTML += `<tr>
-                    <td>${item.id}</td>
+                    <td>
+                        ${item.id}
+                        <div class='mt-1 d-flex gap-1'>
+                            <button class='btn btn-sm btn-outline-primary' onclick='fillForEdit(${item.id}, ${item.publicationId}, ${JSON.stringify(item.reviewText)})'>Ред.</button>
+                            <button class='btn btn-sm btn-outline-danger' onclick='deleteById(${item.id})'>Удалить</button>
+                        </div>
+                    </td>
                     <td>${item.publicationTitle}</td>
                     <td>${item.reviewText}</td>
-                    <td>${item.attachmentUrl ? `<a href="${item.attachmentUrl}" target="_blank">${item.attachmentFileName ?? 'Открыть'}</a>` : '—'}</td>
+                    <td>${item.attachmentUrl ? `<a href="/Home/ReadAttachment/${item.id}" target="_blank">${item.attachmentFileName ?? 'Открыть'}</a>` : '—'}</td>
                     <td>
                         ${commentHtml}
                         <div class='mt-2 d-flex gap-1'>
@@ -82,12 +88,15 @@
                 method: 'POST', body: payload
             });
             if (!response.ok) return alert(await response.text());
+            clearForm();
             loadReviews();
         }
 
         async function updateReview() {
+            const reviewId = Number(document.getElementById('reviewId').value);
+            if (!reviewId) return alert('Выберите рецензию через кнопку "Ред." или укажите ID.');
             const payload = new FormData();
-            payload.append('id', String(Number(document.getElementById('reviewId').value)));
+            payload.append('id', String(reviewId));
             payload.append('publicationId', String(Number(document.getElementById('publicationId').value)));
             payload.append('reviewText', document.getElementById('reviewText').value);
             const fileInput = document.getElementById('attachmentFile');
@@ -98,6 +107,7 @@
                 method: 'PUT', body: payload
             });
             if (!response.ok) return alert(await response.text());
+            clearForm();
             loadReviews();
         }
 
@@ -106,7 +116,31 @@
             if (!id) return alert('Укажите ID рецензии для удаления.');
             const response = await fetch(`/Home/DeleteUserReview/${id}`, { method: 'DELETE' });
             if (!response.ok) return alert(await response.text());
+            clearForm();
             loadReviews();
+        }
+
+        async function deleteById(id) {
+            const response = await fetch(`/Home/DeleteUserReview/${id}`, { method: 'DELETE' });
+            if (!response.ok) return alert(await response.text());
+            if (Number(document.getElementById('reviewId').value) === id) {
+                clearForm();
+            }
+            loadReviews();
+        }
+
+        function fillForEdit(id, publicationId, reviewText) {
+            document.getElementById('reviewId').value = id;
+            document.getElementById('publicationId').value = publicationId;
+            document.getElementById('reviewText').value = reviewText;
+            document.getElementById('attachmentFile').value = '';
+        }
+
+        function clearForm() {
+            document.getElementById('reviewId').value = '';
+            document.getElementById('publicationId').value = '';
+            document.getElementById('reviewText').value = '';
+            document.getElementById('attachmentFile').value = '';
         }
 
         async function addComment(reviewId) {

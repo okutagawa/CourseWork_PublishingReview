@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace PublishingReviewApp.Controllers;
 
@@ -661,19 +662,27 @@ public class HomeController : Controller
         }
 
         var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email, EqualityComparer<int>.Default) ?? new Dictionary<int, string>();
+        var attachments = _attachmentLogic.ReadList(null)?
+            .GroupBy(x => x.ReviewId)
+            .ToDictionary(x => x.Key, x => x.OrderByDescending(a => a.UploadedAt).FirstOrDefault(), EqualityComparer<int>.Default)
+            ?? new Dictionary<int, PublishingReviewContracts.ViewModels.AttachmentViewModel?>();
         var comments = _commentLogic.ReadList(null) ?? new();
         var data = (_reviewLogic.ReadList(new ReviewSearchModel { PublicationId = publicationId }) ?? new())
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new
+            .Select(x =>
             {
-                x.Id,
-                x.PublicationId,
-                PublicationTitle = publication.Title,
-                ReviewText = x.Content,
-                AttachmentFileName = (string?)null,
-                CreatedUtc = x.CreatedAt,
-                UserEmail = users.TryGetValue(x.ReviewerId, out var email) ? email : $"user-{x.ReviewerId}",
-                Comments = comments
+                attachments.TryGetValue(x.Id, out var attachment);
+                return new
+                {
+                    x.Id,
+                    x.PublicationId,
+                    PublicationTitle = publication.Title,
+                    ReviewText = x.Content,
+                    AttachmentFileName = attachment?.FileName,
+                    AttachmentUrl = attachment is null ? null : $"/Home/ReadAttachment/{x.Id}",
+                    CreatedUtc = x.CreatedAt,
+                    UserEmail = users.TryGetValue(x.ReviewerId, out var email) ? email : $"user-{x.ReviewerId}",
+                    Comments = comments
                     .Where(c => c.ReviewId == x.Id)
                     .OrderByDescending(c => c.CreatedAt)
                     .Select(c => new ReviewCommentItemModel(
@@ -683,6 +692,7 @@ public class HomeController : Controller
                         c.Content,
                         c.CreatedAt))
                     .ToList()
+                };
             })
             .ToList();
 
@@ -1184,7 +1194,12 @@ public class HomeController : Controller
             return NotFound($"Задача рецензирования #{request.TaskId} не найдена.");
         }
 
-        var isApproved = request.Decision == ReviewWorkflowState.Approved;
+        var status = request.Decision switch
+        {
+            ReviewWorkflowState.Approved => ReviewStatus.Confirmed,
+            ReviewWorkflowState.Rejected => ReviewStatus.Rejected,
+            _ => ReviewStatus.Pending
+        };
         var updated = _reviewLogic.Update(new ReviewBindingModel
         {
             Id = review.Id,
@@ -1192,7 +1207,7 @@ public class HomeController : Controller
             ReviewerId = review.ReviewerId,
             Content = string.IsNullOrWhiteSpace(request.Comment) ? review.Content : request.Comment.Trim(),
             Rating = review.Rating,
-            Status = isApproved ? ReviewStatus.Confirmed : ReviewStatus.Pending,
+            Status = status,
             CreatedAt = review.CreatedAt,
             DeadlineUtc = review.DeadlineUtc,
             ConfirmedById = review.ConfirmedById == 0 ? null : review.ConfirmedById
@@ -1388,6 +1403,41 @@ public class HomeController : Controller
         State = ToRussianState(task.State)
     };
 
+    [HttpGet("{reviewId:int}")]
+    public IActionResult ReadAttachment(int reviewId)
+    {
+        if (TryUnauthorizedApiResult(out var unauthorizedResult))
+        {
+            return unauthorizedResult;
+        }
+
+        var attachment = (_attachmentLogic.ReadList(new AttachmentSearchModel { ReviewId = reviewId }) ?? new())
+            .OrderByDescending(x => x.UploadedAt)
+            .FirstOrDefault();
+        if (attachment is null || string.IsNullOrWhiteSpace(attachment.StoragePath))
+        {
+            return NotFound("Файл не найден.");
+        }
+
+        var relativePath = attachment.StoragePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+        var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, relativePath);
+        if (!System.IO.File.Exists(fullPath))
+        {
+            return NotFound("Файл не найден в хранилище.");
+        }
+
+        var sourceBytes = System.IO.File.ReadAllBytes(fullPath);
+        var mimeType = string.IsNullOrWhiteSpace(attachment.MimeType) ? "application/octet-stream" : attachment.MimeType;
+        if (!mimeType.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            return File(sourceBytes, mimeType, attachment.FileName);
+        }
+
+        var normalizedText = DecodeTextToUtf8(sourceBytes);
+        var normalizedBytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true).GetBytes(normalizedText);
+        return File(normalizedBytes, "text/plain; charset=utf-8", attachment.FileName);
+    }
+
     private List<ReviewTaskModel> BuildReviewQueue(
         List<PublishingReviewContracts.ViewModels.PublicationViewModel> publications,
         List<PublishingReviewContracts.ViewModels.ReviewViewModel> reviews)
@@ -1422,7 +1472,7 @@ public class HomeController : Controller
                     publication.Title,
                     publication.Authors,
                     publication.Publisher,
-                    review.Status == ReviewStatus.Confirmed ? ReviewWorkflowState.Approved : ReviewWorkflowState.InReview,
+                    ResolveWorkflowState(review.Status, publication.Description, review.Content),
                     users.TryGetValue(review.ReviewerId, out var reviewerEmail) ? reviewerEmail : null,
                     review.DeadlineUtc,
                     publication.Description,
@@ -1442,6 +1492,39 @@ public class HomeController : Controller
         ReviewWorkflowState.Rejected => "Отклонено",
         _ => "Не определён"
     };
+
+    private static ReviewWorkflowState ResolveWorkflowState(ReviewStatus status, string? publicationDescription, string? reviewContent)
+    {
+        if (status == ReviewStatus.Confirmed)
+        {
+            return ReviewWorkflowState.Approved;
+        }
+
+        if (status == ReviewStatus.Rejected)
+        {
+            return ReviewWorkflowState.Rejected;
+        }
+
+        var text = $"{publicationDescription} {reviewContent}".ToLowerInvariant();
+        if (Regex.IsMatch(text, @"\bтребует\s+доработк"))
+        {
+            return ReviewWorkflowState.RequiresRevision;
+        }
+
+        return ReviewWorkflowState.InReview;
+    }
+
+    private static string DecodeTextToUtf8(byte[] sourceBytes)
+    {
+        try
+        {
+            return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true).GetString(sourceBytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            return Encoding.GetEncoding(1251).GetString(sourceBytes);
+        }
+    }
 
     private string GetRoleDisplayName() => IsEmployee() ? "Сотрудник" : "Пользователь";
 

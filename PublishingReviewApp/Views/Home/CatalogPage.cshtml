@@ -95,7 +95,7 @@
                         </div>
                         <div><b>Автор рецензии:</b> ${item.userEmail}</div>
                         <p class="mt-2 mb-2">${item.reviewText}</p>
-                        <div><b>Файл:</b> ${item.attachmentFileName ?? "—"}</div>
+                        <div><b>Файл:</b> ${item.attachmentUrl ? `<a href="${item.attachmentUrl}" target="_blank">${item.attachmentFileName ?? 'Открыть'}</a>` : "—"}</div>
                         <div class="mt-2">
                             <b>Комментарии:</b>
                             <ul>${comments}</ul>
