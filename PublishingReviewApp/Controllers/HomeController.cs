@@ -8,6 +8,7 @@ using PublishingReviewDatabase.Models;
 using PublishingReviewDatabaseImplements.Models;
 using PublishingReviewDataModels.Enums;
 using System.IO;
+using System.Text.Json;
 using System.Text;
 
 namespace PublishingReviewApp.Controllers;
@@ -1080,7 +1081,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public IActionResult AssignReviewer([FromBody] ReviewerAssignmentModel request)
+    public async Task<IActionResult> AssignReviewer([FromBody] ReviewerAssignmentModel? request)
     {
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
@@ -1090,6 +1091,12 @@ public class HomeController : Controller
         if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
         {
             return forbiddenResult;
+        }
+
+        request ??= await TryReadFromFormAsync<ReviewerAssignmentModel>();
+        if (request is null)
+        {
+            return BadRequest("Тело запроса не передано.");
         }
 
         if (request.TaskId <= 0 || string.IsNullOrWhiteSpace(request.ReviewerEmail))
@@ -1109,6 +1116,8 @@ public class HomeController : Controller
             return NotFound($"Задача рецензирования #{request.TaskId} не найдена.");
         }
 
+        var deadlineUtc = NormalizeUtcDateTime(request.DeadlineUtc);
+
         _reviewLogic.Create(new ReviewBindingModel
         {
             PublicationId = publication.Id,
@@ -1117,7 +1126,7 @@ public class HomeController : Controller
             Rating = 0,
             Status = ReviewStatus.Pending,
             CreatedAt = DateTime.UtcNow,
-            DeadlineUtc = request.DeadlineUtc
+            DeadlineUtc = deadlineUtc
         });
         var createdReview = _reviewLogic.ReadList(new ReviewSearchModel { PublicationId = publication.Id })?
             .Where(x => x.ReviewerId == reviewer.Id)
@@ -1136,14 +1145,14 @@ public class HomeController : Controller
             publication.Publisher,
             ReviewWorkflowState.InReview,
             reviewer.Email,
-            request.DeadlineUtc ?? DateTime.UtcNow.AddDays(7),
+            deadlineUtc ?? DateTime.UtcNow.AddDays(7),
             null,
             createdReview.CreatedAt);
         return Ok(MapReviewTaskForOutput(updated));
     }
 
     [HttpPost]
-    public IActionResult SubmitReviewResult([FromBody] ReviewDecisionModel? request)
+    public async Task<IActionResult> SubmitReviewResult([FromBody] ReviewDecisionModel? request)
     {
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
@@ -1154,6 +1163,8 @@ public class HomeController : Controller
         {
             return forbiddenResult;
         }
+
+        request ??= await TryReadFromFormAsync<ReviewDecisionModel>();
 
         if (request is null)
         {
@@ -1232,6 +1243,59 @@ public class HomeController : Controller
             string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
             review.CreatedAt);
         return Ok(MapReviewTaskForOutput(response));
+    }
+
+    private static DateTime? NormalizeUtcDateTime(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        var date = value.Value;
+        return date.Kind switch
+        {
+            DateTimeKind.Utc => date,
+            DateTimeKind.Local => date.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(date, DateTimeKind.Utc)
+        };
+    }
+
+    private async Task<T?> TryReadFromFormAsync<T>() where T : class
+    {
+        if (!Request.HasFormContentType)
+        {
+            return null;
+        }
+
+        var form = await Request.ReadFormAsync();
+        if (form.Count == 0)
+        {
+            return null;
+        }
+
+        var map = new Dictionary<string, object>();
+
+        foreach (var pair in form)
+        {
+            map[pair.Key] = pair.Value.Count > 1
+                ? pair.Value.ToArray()
+                : pair.Value.ToString();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(
+                JsonSerializer.Serialize(map),
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<(string FileName, string PublicUrl)> SaveReviewAttachmentAsync(int reviewId, IFormFile file)
