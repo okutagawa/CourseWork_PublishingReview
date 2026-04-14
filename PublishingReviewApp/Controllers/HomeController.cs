@@ -8,6 +8,7 @@ using PublishingReviewDatabase.Models;
 using PublishingReviewDatabaseImplements.Models;
 using PublishingReviewDataModels.Enums;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text;
 
@@ -619,9 +620,9 @@ public class HomeController : Controller
         var reviews = _reviewLogic.ReadList(new ReviewSearchModel { ReviewerId = user.Id }) ?? new();
         var attachments = _attachmentLogic.ReadList(null)?
             .GroupBy(x => x.ReviewId)
-            .ToDictionary(x => x.Key, x => x.OrderByDescending(a => a.UploadedAt).FirstOrDefault())
+            .ToDictionary(x => x.Key, x => x.OrderByDescending(a => a.UploadedAt).FirstOrDefault(), EqualityComparer<int>.Default)
             ?? new Dictionary<int, PublishingReviewContracts.ViewModels.AttachmentViewModel?>();
-        var publications = _publicationLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Title) ?? new Dictionary<int, string>();
+        var publications = _publicationLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Title, EqualityComparer<int>.Default) ?? new Dictionary<int, string>();
         var data = reviews
             .OrderByDescending(x => x.CreatedAt)
             .Select(x =>
@@ -658,7 +659,7 @@ public class HomeController : Controller
             return NotFound("Издание не найдено.");
         }
 
-        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email) ?? new Dictionary<int, string>();
+        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email, EqualityComparer<int>.Default) ?? new Dictionary<int, string>();
         var comments = _commentLogic.ReadList(null) ?? new();
         var data = (_reviewLogic.ReadList(new ReviewSearchModel { PublicationId = publicationId }) ?? new())
             .OrderByDescending(x => x.CreatedAt)
@@ -873,7 +874,7 @@ public class HomeController : Controller
             return unauthorizedResult;
         }
 
-        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email) ?? new Dictionary<int, string>();
+        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email, EqualityComparer<int>.Default) ?? new Dictionary<int, string>();
         var data = (_commentLogic.ReadList(new CommentSearchModel { ReviewId = reviewId }) ?? new())
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => new ReviewCommentItemModel(
@@ -1081,7 +1082,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> AssignReviewer([FromBody] ReviewerAssignmentModel? request)
+    public async Task<IActionResult> AssignReviewer()
     {
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
@@ -1093,7 +1094,7 @@ public class HomeController : Controller
             return forbiddenResult;
         }
 
-        request ??= await TryReadFromFormAsync<ReviewerAssignmentModel>();
+        var request = await TryReadRequestModelAsync<ReviewerAssignmentModel>();
         if (request is null)
         {
             return BadRequest("Тело запроса не передано.");
@@ -1152,7 +1153,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> SubmitReviewResult([FromBody] ReviewDecisionModel? request)
+    public async Task<IActionResult> SubmitReviewResult()
     {
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
@@ -1164,7 +1165,7 @@ public class HomeController : Controller
             return forbiddenResult;
         }
 
-        request ??= await TryReadFromFormAsync<ReviewDecisionModel>();
+        var request = await TryReadRequestModelAsync<ReviewDecisionModel>();
 
         if (request is null)
         {
@@ -1261,7 +1262,58 @@ public class HomeController : Controller
         };
     }
 
-    private async Task<T?> TryReadFromFormAsync<T>() where T : class
+    private async Task<T?> TryReadRequestModelAsync<T>() where T : class
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        options.Converters.Add(new JsonStringEnumConverter());
+
+        if (Request.HasJsonContentType)
+        {
+            Request.EnableBuffering();
+            using var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true);
+            var body = await reader.ReadToEndAsync();
+            Request.Body.Position = 0;
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                try
+                {
+                    return JsonSerializer.Deserialize<T>(body, options);
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+
+        var fromForm = await TryReadFromFormAsync<T>(options);
+        if (fromForm is not null)
+        {
+            return fromForm;
+        }
+
+        if (Request.Query.Count == 0)
+        {
+            return null;
+        }
+
+        var queryMap = Request.Query.ToDictionary(
+            key => key.Key,
+            value => value.Value.Count > 1 ? value.Value.ToArray() : value.Value.ToString());
+        try
+        {
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(queryMap), options);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<T?> TryReadFromFormAsync<T>(JsonSerializerOptions options) where T : class
     {
         if (!Request.HasFormContentType)
         {
@@ -1274,23 +1326,13 @@ public class HomeController : Controller
             return null;
         }
 
-        var map = new Dictionary<string, object>();
-
-        foreach (var pair in form)
-        {
-            map[pair.Key] = pair.Value.Count > 1
-                ? pair.Value.ToArray()
-                : pair.Value.ToString();
-        }
+        var map = form.ToDictionary(
+            key => key.Key,
+            value => value.Value.Count > 1 ? value.Value.ToArray() : value.Value.ToString());
 
         try
         {
-            return JsonSerializer.Deserialize<T>(
-                JsonSerializer.Serialize(map),
-                new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(map), options);
         }
         catch
         {
@@ -1328,6 +1370,7 @@ public class HomeController : Controller
     private object MapReviewTaskForOutput(ReviewTaskModel task) => new
     {
         task.Id,
+        TaskId = task.Id,
         task.PublicationId,
         task.Title,
         task.AuthorFullName,
@@ -1344,7 +1387,7 @@ public class HomeController : Controller
         List<PublishingReviewContracts.ViewModels.PublicationViewModel> publications,
         List<PublishingReviewContracts.ViewModels.ReviewViewModel> reviews)
     {
-        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email) ?? new Dictionary<int, string>();
+        var users = _userLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Email, EqualityComparer<int>.Default) ?? new Dictionary<int, string>();
         var result = new List<ReviewTaskModel>();
 
         foreach (var publication in publications)
