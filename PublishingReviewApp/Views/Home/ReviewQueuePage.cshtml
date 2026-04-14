@@ -24,9 +24,9 @@
     <div class="col-lg-6">
         <div class="card p-3">
             <h5>Назначение рецензента</h5>
+            <div class="form-text mb-2">Укажите ID рукописи (PublicationId).</div>
             <div class="row g-2">
-                <div class="col-md-4"><input id="assignTaskId" type="number" class="form-control" placeholder="ID задачи" /></div>
-                <div class="col-md-5"><input id="assignReviewerEmail" type="email" class="form-control" placeholder="Email рецензента" /></div>
+                <div class="col-md-4"><input id="assignTaskId" type="number" class="form-control" placeholder="ID рукописи" /></div>                <div class="col-md-5"><input id="assignReviewerEmail" type="email" class="form-control" placeholder="Email рецензента" /></div>
                 <div class="col-md-3"><input id="assignDeadlineUtc" type="date" class="form-control" /></div>
             </div>
             <button class="btn btn-secondary mt-2" onclick="assignReviewer()">Назначить</button>
@@ -35,9 +35,9 @@
     <div class="col-lg-6">
         <div class="card p-3">
             <h5>Решение по рецензии</h5>
+            <div class="form-text mb-2">Укажите ID задачи рецензии (TaskId), а не ID рукописи.</div>
             <div class="row g-2">
-                <div class="col-md-4"><input id="decisionTaskId" type="number" class="form-control" placeholder="ID задачи" /></div>
-                <div class="col-md-4">
+                <div class="col-md-4"><input id="decisionTaskId" type="number" class="form-control" placeholder="ID задачи рецензии" /></div>                <div class="col-md-4">
                     <select id="decisionState" class="form-select">
                         <option value="Approved">Одобрить</option>
                         <option value="RequiresRevision">На доработку</option>
@@ -54,7 +54,8 @@
 <table class="table table-striped">
     <thead>
         <tr>
-            <th>#</th>
+            <th>ID задачи</th>
+            <th>ID рукописи</th>
             <th>Рукопись</th>
             <th>Автор</th>
             <th>Тип</th>
@@ -75,7 +76,7 @@
             const body = document.getElementById('queueTable');
             body.innerHTML = '';
             data.forEach(item => {
-                body.innerHTML += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.state}</td><td>${item.reviewerEmail ?? '—'}</td><td>${item.deadlineUtc ? new Date(item.deadlineUtc).toLocaleDateString() : '—'}</td></tr>`;
+                body.innerHTML += `<tr><td>${item.taskId}</td><td>${item.publicationId}</td><td>${item.title}</td><td>${item.authorFullName}</td><td>${item.publicationType}</td><td>${item.state}</td><td>${item.reviewerEmail ?? '—'}</td><td>${item.deadlineUtc ? new Date(item.deadlineUtc).toLocaleDateString() : '—'}</td></tr>`;            
             });
         }
 

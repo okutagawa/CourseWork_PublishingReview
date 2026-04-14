@@ -10,6 +10,7 @@ using PublishingReviewDataModels.Enums;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text;
 
 namespace PublishingReviewApp.Controllers;
@@ -1270,7 +1271,7 @@ public class HomeController : Controller
         };
         options.Converters.Add(new JsonStringEnumConverter());
 
-        if (Request.HasJsonContentType)
+        if (Request.HasJsonContentType())
         {
             Request.EnableBuffering();
             using var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true);
@@ -1300,9 +1301,11 @@ public class HomeController : Controller
             return null;
         }
 
-        var queryMap = Request.Query.ToDictionary(
-            key => key.Key,
-            value => value.Value.Count > 1 ? value.Value.ToArray() : value.Value.ToString());
+        var queryMap = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in Request.Query)
+        {
+            queryMap[item.Key] = item.Value.Count > 1 ? item.Value.ToArray() : item.Value.ToString();
+        }
         try
         {
             return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(queryMap), options);
@@ -1326,9 +1329,11 @@ public class HomeController : Controller
             return null;
         }
 
-        var map = form.ToDictionary(
-            key => key.Key,
-            value => value.Value.Count > 1 ? value.Value.ToArray() : value.Value.ToString());
+        var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in form)
+        {
+            map[item.Key] = item.Value.Count > 1 ? item.Value.ToArray() : item.Value.ToString();
+        }
 
         try
         {
