@@ -22,10 +22,12 @@ builder.Services.AddScoped<IUserStorage, UserStorage>();
 builder.Services.AddScoped<IPublicationStorage, PublicationStorage>();
 builder.Services.AddScoped<IReviewStorage, ReviewStorage>();
 builder.Services.AddScoped<ICommentStorage, CommentStorage>();
+builder.Services.AddScoped<IAttachmentStorage, AttachmentStorage>();
 builder.Services.AddScoped<IUserLogic, UserLogic>();
 builder.Services.AddScoped<IPublicationLogic, PublicationLogic>();
 builder.Services.AddScoped<IReviewLogic, ReviewLogic>();
 builder.Services.AddScoped<ICommentLogic, CommentLogic>();
+builder.Services.AddScoped<IAttachmentLogic, AttachmentLogic>();
 builder.Services.AddScoped(typeof(IPasswordHasher<>), typeof(PasswordHasher<>));
 builder.Services.AddDbContext<PublishingDatabase>();
 

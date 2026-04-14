@@ -27,6 +27,9 @@ namespace PublishingReviewContracts.ViewModels
         [DisplayName("Дата создания")]
         public DateTime CreatedAt { get; set; }
 
+        [DisplayName("Срок рецензирования")]
+        public DateTime? DeadlineUtc { get; set; }
+
         [DisplayName("Дата одобрения")]
         public DateTime? ConfirmedAt { get; set; }
 

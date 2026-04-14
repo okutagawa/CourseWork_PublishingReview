@@ -1,12 +1,14 @@
-﻿using System.Text;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using PublishingReviewApp.Models;
 using PublishingReviewContracts.BindingModel;
 using PublishingReviewContracts.BusinessLogicContracts;
 using PublishingReviewContracts.SearchModels;
-using PublishingReviewDataModels.Enums;
 using PublishingReviewDatabase;
+using PublishingReviewDatabase.Models;
 using PublishingReviewDatabaseImplements.Models;
+using PublishingReviewDataModels.Enums;
+using System.IO;
+using System.Text;
 
 namespace PublishingReviewApp.Controllers;
 
@@ -24,6 +26,8 @@ public class HomeController : Controller
     private readonly IPublicationLogic _publicationLogic;
     private readonly IReviewLogic _reviewLogic;
     private readonly ICommentLogic _commentLogic;
+    private readonly IAttachmentLogic _attachmentLogic;
+    private readonly IWebHostEnviroment _webHostEnviroment;
     private readonly PublishingDatabase _db;
 
     public HomeController(
@@ -32,6 +36,8 @@ public class HomeController : Controller
         IPublicationLogic publicationLogic,
         IReviewLogic reviewLogic,
         ICommentLogic commentLogic,
+        IAttachmentLogic attachmentLogic,
+        IWebHostEnvironment webHostEnvironment,
         PublishingDatabase db)
     {
         _logger = logger;
@@ -39,6 +45,8 @@ public class HomeController : Controller
         _publicationLogic = publicationLogic;
         _reviewLogic = reviewLogic;
         _commentLogic = commentLogic;
+        _attachmentLogic = attachmentLogic;
+        _webHostEnviroment = webHostEnvironment;
         _db = db;
     }
 
@@ -608,17 +616,29 @@ public class HomeController : Controller
             return Ok(new List<UserReviewRecordModel>());
         }
         var reviews = _reviewLogic.ReadList(new ReviewSearchModel { ReviewerId = user.Id }) ?? new();
+        var attachments = _attachmentLogic.ReadList(null)?
+            .GroupBy(x => x.ReviewId)
+            .ToDictionary(x => x.Key, x => x.OrderByDescending(a => a.UploadedAt).FirstOrDefault())
+            ?? new Dictionary<int, PublishingReviewContracts.ViewModels.AttachmentViewModel?>();
         var publications = _publicationLogic.ReadList(null)?.ToDictionary(x => x.Id, x => x.Title) ?? new Dictionary<int, string>();
         var data = reviews
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new UserReviewRecordModel(
-                x.Id,
-                currentUserEmail,
-                x.PublicationId,
-                publications.TryGetValue(x.PublicationId, out var title) ? title : $"Публикация #{x.PublicationId}",
-                x.Content,
-                null,
-                x.CreatedAt))
+            .Select(x =>
+            {
+                attachments.TryGetValue(x.Id, out var attachment);
+                var attachmentUrl = attachment is null || string.IsNullOrWhiteSpace(attachment.StoragePath)
+                    ? null
+                    : attachment.StoragePath;
+                return new UserReviewRecordModel(
+                    x.Id,
+                    currentUserEmail,
+                    x.PublicationId,
+                    publications.TryGetValue(x.PublicationId, out var title) ? title : $"Публикация #{x.PublicationId}",
+                    x.Content,
+                    attachment?.FileName,
+                    attachmentUrl,
+                    x.CreatedAt);
+            })
             .ToList();
         return Ok(data);
     }
@@ -667,7 +687,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public IActionResult CreateUserReview([FromBody] UserReviewUpsertModel request)
+    public async Task<IActionResult> CreateUserReview([FromForm] UserReviewUpsertModel request)
     {
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
@@ -717,18 +737,26 @@ public class HomeController : Controller
             .OrderByDescending(x => x.Id)
             .FirstOrDefault();
 
+        string? attachmentUrl = null;
+        string? attachmentName = null;
+        if (review is not null && request.Attachment is not null && request.Attachment.Length > 0)
+        {
+            (attachmentName, attachmentUrl) = await SaveReviewAttachmentAsync(review.Id, request.Attachment);
+        }
+
         return Ok(new UserReviewRecordModel(
             review?.Id ?? 0,
             currentUserEmail,
             publication.Id,
             publication.Title,
             request.ReviewText.Trim(),
-            request.AttachmentFileName?.Trim(),
+            attachmentName,
+            attachmentUrl,
             DateTime.UtcNow));
     }
 
     [HttpPut]
-    public IActionResult UpdateUserReview([FromBody] UserReviewUpsertModel request)
+    public async Task<IActionResult> UpdateUserReview([FromForm] UserReviewUpsertModel request)
     {
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
@@ -780,13 +808,30 @@ public class HomeController : Controller
         {
             return BadRequest("Не удалось обновить рецензию.");
         }
+
+        string? attachmentUrl = null;
+        string? attachmentName = null;
+        if (request.Attachment is not null && request.Attachment.Length > 0)
+        {
+            (attachmentName, attachmentUrl) = await SaveReviewAttachmentAsync(request.Id, request.Attachment);
+        }
+        else
+        {
+            var existingAttachment = (_attachmentLogic.ReadList(new AttachmentSearchModel { ReviewId = request.Id }) ?? new())
+                .OrderByDescending(x => x.UploadedAt)
+                .FirstOrDefault();
+            attachmentName = existingAttachment?.FileName;
+            attachmentUrl = existingAttachment?.StoragePath;
+        }
+
         return Ok(new UserReviewRecordModel(
             request.Id,
             currentUserEmail,
             publication.Id,
             publication.Title,
             request.ReviewText.Trim(),
-            request.AttachmentFileName?.Trim(),
+            attachmentName,
+            attachmentUrl,
             existingReview.CreatedAt));
     }
 
@@ -989,7 +1034,7 @@ public class HomeController : Controller
             publication.Authors,
             publication.Publisher,
             ReviewWorkflowState.WaitingForReviewer,
-            null,
+            review.DeadlineUtc,
             null,
             request.EditorComment?.Trim(),
             DateTime.UtcNow);
@@ -1071,7 +1116,8 @@ public class HomeController : Controller
             Content = "Назначено на рецензирование",
             Rating = 0,
             Status = ReviewStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            DeadlineUtc = request.DeadlineUtc
         });
         var createdReview = _reviewLogic.ReadList(new ReviewSearchModel { PublicationId = publication.Id })?
             .Where(x => x.ReviewerId == reviewer.Id)
@@ -1097,7 +1143,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public IActionResult SubmitReviewResult([FromBody] ReviewDecisionModel request)
+    public IActionResult SubmitReviewResult([FromBody] ReviewDecisionModel? request)
     {
         if (TryUnauthorizedApiResult(out var unauthorizedResult))
         {
@@ -1107,6 +1153,11 @@ public class HomeController : Controller
         if (TryForbiddenEmployeeApiResult(out var forbiddenResult))
         {
             return forbiddenResult;
+        }
+
+        if (request is null)
+        {
+            return BadRequest("Тело запроса не передано.");
         }
 
         if (request.TaskId <= 0)
@@ -1130,6 +1181,7 @@ public class HomeController : Controller
             Rating = review.Rating,
             Status = isApproved ? ReviewStatus.Confirmed : ReviewStatus.Pending,
             CreatedAt = review.CreatedAt,
+            DeadlineUtc = review.DeadlineUtc,
             ConfirmedById = review.ConfirmedById == 0 ? null : review.ConfirmedById
         });
         if (!updated)
@@ -1176,10 +1228,37 @@ public class HomeController : Controller
             publication?.Publisher ?? string.Empty,
             request.Decision,
             user?.Email,
-            null,
+            review.DeadlineUtc,
             string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
             review.CreatedAt);
         return Ok(MapReviewTaskForOutput(response));
+    }
+
+    private async Task<(string FileName, string PublicUrl)> SaveReviewAttachmentAsync(int reviewId, IFormFile file)
+    {
+        var safeFileName = Path.GetFileName(file.FileName);
+        var uploadsRoot = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "reviews", reviewId.ToString());
+        Directory.CreateDirectory(uploadsRoot);
+        var uniqueFileName = $"{Guid.NewGuid():N}_{safeFileName}";
+        var physicalPath = Path.Combine(uploadsRoot, uniqueFileName);
+
+        await using (var stream = System.IO.File.Create(physicalPath))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var publicUrl = $"/uploads/reviews/{reviewId}/{uniqueFileName}";
+        _attachmentLogic.Create(new AttachmentBindingModel
+        {
+            ReviewId = reviewId,
+            FileName = safeFileName,
+            MimeType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
+            SizeBytes = file.Length,
+            StoragePath = publicUrl,
+            UploadedAt = DateTime.UtcNow
+        });
+
+        return (safeFileName, publicUrl);
     }
 
     private object MapReviewTaskForOutput(ReviewTaskModel task) => new
@@ -1233,7 +1312,7 @@ public class HomeController : Controller
                     publication.Publisher,
                     review.Status == ReviewStatus.Confirmed ? ReviewWorkflowState.Approved : ReviewWorkflowState.InReview,
                     users.TryGetValue(review.ReviewerId, out var reviewerEmail) ? reviewerEmail : null,
-                    null,
+                    review.DeadlineUtc,
                     publication.Description,
                     review.CreatedAt));
             }

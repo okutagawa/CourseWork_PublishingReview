@@ -58,7 +58,7 @@
                     <td>${item.id}</td>
                     <td>${item.publicationTitle}</td>
                     <td>${item.reviewText}</td>
-                    <td>${item.attachmentFileName ?? '—'}</td>
+                    <td>${item.attachmentUrl ? `<a href="${item.attachmentUrl}" target="_blank">${item.attachmentFileName ?? 'Открыть'}</a>` : '—'}</td>
                     <td>
                         ${commentHtml}
                         <div class='mt-2 d-flex gap-1'>
@@ -71,27 +71,31 @@
         }
 
         async function createReview() {
-            const payload = {
-                publicationId: Number(document.getElementById('publicationId').value),
-                reviewText: document.getElementById('reviewText').value,
-                attachmentFileName: getAttachmentName()
-            };
+            const payload = new FormData();
+            payload.append('publicationId', String(Number(document.getElementById('publicationId').value)));
+            payload.append('reviewText', document.getElementById('reviewText').value);
+            const fileInput = document.getElementById('attachmentFile');
+            if (fileInput.files.length) {
+                payload.append('attachment', fileInput.files[0]);
+            }
             const response = await fetch('/Home/CreateUserReview', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                method: 'POST', body: payload
             });
             if (!response.ok) return alert(await response.text());
             loadReviews();
         }
 
         async function updateReview() {
-            const payload = {
-                id: Number(document.getElementById('reviewId').value),
-                publicationId: Number(document.getElementById('publicationId').value),
-                reviewText: document.getElementById('reviewText').value,
-                attachmentFileName: getAttachmentName()
-            };
+            const payload = new FormData();
+            payload.append('id', String(Number(document.getElementById('reviewId').value)));
+            payload.append('publicationId', String(Number(document.getElementById('publicationId').value)));
+            payload.append('reviewText', document.getElementById('reviewText').value);
+            const fileInput = document.getElementById('attachmentFile');
+            if (fileInput.files.length) {
+                payload.append('attachment', fileInput.files[0]);
+            }
             const response = await fetch('/Home/UpdateUserReview', {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                method: 'PUT', body: payload
             });
             if (!response.ok) return alert(await response.text());
             loadReviews();

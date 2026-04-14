@@ -28,6 +28,8 @@ namespace PublishingReviewDatabase.Models
 
         public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
 
+        public DateTime? DeadlineUtc { get; private set; }
+
         public int Id { get; private set; }
 
         [ForeignKey("PublicationId")]
@@ -54,7 +56,8 @@ namespace PublishingReviewDatabase.Models
                 Rating = Convert.ToInt32(model.Rating),
                 IsApproved = model.IsApproved,
                 ApprovedByEmployeeId = model.ApprovedByEmployeeId,
-                CreatedAt = model.CreatedAt
+                CreatedAt = model.CreatedAt,
+                DeadlineUtc = model.DeadlineUtc
             };
         }
 
@@ -67,6 +70,7 @@ namespace PublishingReviewDatabase.Models
             Rating = Convert.ToInt32(model.Rating);
             IsApproved = model.IsApproved;
             ApprovedByEmployeeId = model.ApprovedByEmployeeId;
+            DeadlineUtc = model.DeadlineUtc;
         }
 
         public ReviewBindingModel GetReview => new ReviewBindingModel
@@ -79,7 +83,8 @@ namespace PublishingReviewDatabase.Models
             Rating = Rating,
             Status = IsApproved ? ReviewStatus.Confirmed : ReviewStatus.Pending,
             ConfirmedById = ApprovedByEmployeeId,
-            CreatedAt = CreatedAt
+            CreatedAt = CreatedAt,
+            DeadlineUtc = DeadlineUtc
         };
 
         public ReviewViewModel GetReviewViewModel => new ReviewViewModel
@@ -92,7 +97,8 @@ namespace PublishingReviewDatabase.Models
             Rating = Rating,
             Status = IsApproved ? ReviewStatus.Confirmed : ReviewStatus.Pending,
             ConfirmedById = ApprovedByEmployeeId ?? 0,
-            CreatedAt = CreatedAt
+            CreatedAt = CreatedAt,
+            DeadlineUtc = DeadlineUtc
         };
     }
 }

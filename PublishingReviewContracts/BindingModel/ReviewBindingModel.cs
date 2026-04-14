@@ -16,6 +16,7 @@ namespace PublishingReviewContracts.BindingModel
         public double Rating { get; set; }
         public ReviewStatus Status { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? DeadlineUtc { get; set; }
         public DateTime? ConfirmedAt { get; set; } = DateTime.UtcNow;
         public int PublicationId { get; set; }
         public int ReviewerId { get; set; }

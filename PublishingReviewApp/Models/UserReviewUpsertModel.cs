@@ -8,5 +8,5 @@ public class UserReviewUpsertModel
 
     public string ReviewText { get; set; } = string.Empty;
 
-    public string? AttachmentFileName { get; set; }
+    public IFormFile? Attachment { get; set; }
 }

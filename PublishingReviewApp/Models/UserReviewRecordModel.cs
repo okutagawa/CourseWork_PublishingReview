@@ -7,4 +7,5 @@ public record UserReviewRecordModel(
     string PublicationTitle,
     string ReviewText,
     string? AttachmentFileName,
+    string? AttachmentUrl,
     DateTime CreatedUtc);

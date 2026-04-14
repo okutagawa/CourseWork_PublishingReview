@@ -5673,23 +5673,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\sasha\\.nuget\\packages\\": {},
+    "C:\\Users\\izoti\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
+      "projectUniqueName": "C:\\CourseWork_PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
       "projectName": "PublishingReviewDatabaseImplements",
-      "projectPath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
-      "packagesPath": "C:\\Users\\sasha\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDatabaseImplements\\obj\\",
+      "projectPath": "C:\\CourseWork_PublishingReview\\PublishingReviewDatabaseImplements\\PublishingReviewDatabaseImplements.csproj",
+      "packagesPath": "C:\\Users\\izoti\\.nuget\\packages\\",
+      "outputPath": "C:\\CourseWork_PublishingReview\\PublishingReviewDatabaseImplements\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\sasha\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\izoti\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -5698,21 +5698,20 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\долги\\КОП\\4lab\\MyNuGetPackage": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewBusinessLogic\\PublishingReviewBusinessLogic.csproj": {
-              "projectPath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewBusinessLogic\\PublishingReviewBusinessLogic.csproj"
+            "C:\\CourseWork_PublishingReview\\PublishingReviewBusinessLogic\\PublishingReviewBusinessLogic.csproj": {
+              "projectPath": "C:\\CourseWork_PublishingReview\\PublishingReviewBusinessLogic\\PublishingReviewBusinessLogic.csproj"
             },
-            "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewContracts\\PublishingReviewContracts.csproj": {
-              "projectPath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewContracts\\PublishingReviewContracts.csproj"
+            "C:\\CourseWork_PublishingReview\\PublishingReviewContracts\\PublishingReviewContracts.csproj": {
+              "projectPath": "C:\\CourseWork_PublishingReview\\PublishingReviewContracts\\PublishingReviewContracts.csproj"
             },
-            "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDataModels\\PublishingReviewDataModels.csproj": {
-              "projectPath": "C:\\Users\\sasha\\OneDrive\\Рабочий стол\\Study\\3 курс\\ПИаПС\\CourseWork\\PublishingReview\\PublishingReviewDataModels\\PublishingReviewDataModels.csproj"
+            "C:\\CourseWork_PublishingReview\\PublishingReviewDataModels\\PublishingReviewDataModels.csproj": {
+              "projectPath": "C:\\CourseWork_PublishingReview\\PublishingReviewDataModels\\PublishingReviewDataModels.csproj"
             }
           }
         }
@@ -5727,7 +5726,7 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "9.0.300"
+      "SdkAnalysisLevel": "10.0.200"
     },
     "frameworks": {
       "net8.0": {
@@ -5772,7 +5771,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.201/PortableRuntimeIdentifierGraph.json"
       }
     }
   },

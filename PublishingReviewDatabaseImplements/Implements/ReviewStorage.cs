@@ -51,6 +51,18 @@ namespace PublishingReviewDatabaseImplements.Implements
             {
                 query = query.Where(r => r.PublicationId == model.PublicationId.Value);
             }
+
+            if (model.ReviewerId.HasValue)
+            {
+                query = query.Where(r => r.UserId == model.ReviewerId.Value);
+            }
+            if (model.Status.HasValue)
+            {
+                query = model.Status.Value == PublishingReviewDataModels.Enums.ReviewStatus.Confirmed
+                    ? query.Where(r => r.IsApproved)
+                    : query.Where(r => !r.IsApproved);
+            }
+
             return query.Select(r => r.GetReviewViewModel).ToList();
         }
 
