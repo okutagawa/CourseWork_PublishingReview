@@ -169,6 +169,9 @@ namespace PublishingReviewDatabaseImplements.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DeadlineUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsApproved")
                         .HasColumnType("boolean");
 

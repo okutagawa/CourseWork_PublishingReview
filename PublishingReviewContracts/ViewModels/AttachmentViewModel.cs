@@ -21,6 +21,12 @@ namespace PublishingReviewContracts.ViewModels
 
         [DisplayName("Дата создания")]
 
+        public string MimeType { get; set; } = string.Empty;
+
+        public long SizeBytes { get; set; }
+
+        public string StoragePath { get; set; } = string.Empty;
+
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
 
         public int ReviewId { get; set; }

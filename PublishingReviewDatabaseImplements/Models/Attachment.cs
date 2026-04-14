@@ -69,6 +69,9 @@ namespace PublishingReviewDatabase.Models
             ReviewId = ReviewId,
             FileName = FileName,
             FileData = new byte[0],
+            MimeType = MimeType ?? string.Empty,
+            SizeBytes = SizeBytes,
+            StoragePath = StoragePath ?? string.Empty,
             UploadedAt = UploadedAt
         };
     }

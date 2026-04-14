@@ -12,7 +12,7 @@ using PublishingReviewDatabase;
 namespace PublishingReviewDatabaseImplements.Migrations
 {
     [DbContext(typeof(PublishingDatabase))]
-    [Migration("20260408100427_InitMigration")]
+    [Migration("20260414211132_InitMigration")]
     partial class InitMigration
     {
         /// <inheritdoc />
@@ -170,6 +170,9 @@ namespace PublishingReviewDatabaseImplements.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeadlineUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsApproved")

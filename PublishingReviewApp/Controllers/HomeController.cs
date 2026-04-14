@@ -27,7 +27,7 @@ public class HomeController : Controller
     private readonly IReviewLogic _reviewLogic;
     private readonly ICommentLogic _commentLogic;
     private readonly IAttachmentLogic _attachmentLogic;
-    private readonly IWebHostEnviroment _webHostEnviroment;
+    private readonly IWebHostEnvironment _webHostEnvironment;
     private readonly PublishingDatabase _db;
 
     public HomeController(
@@ -46,7 +46,7 @@ public class HomeController : Controller
         _reviewLogic = reviewLogic;
         _commentLogic = commentLogic;
         _attachmentLogic = attachmentLogic;
-        _webHostEnviroment = webHostEnvironment;
+        _webHostEnvironment = webHostEnvironment;
         _db = db;
     }
 
@@ -1034,7 +1034,7 @@ public class HomeController : Controller
             publication.Authors,
             publication.Publisher,
             ReviewWorkflowState.WaitingForReviewer,
-            review.DeadlineUtc,
+            null,
             null,
             request.EditorComment?.Trim(),
             DateTime.UtcNow);
