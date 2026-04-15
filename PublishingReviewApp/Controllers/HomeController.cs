@@ -488,8 +488,10 @@ public class HomeController : Controller
             Authors = request.AuthorFullName.Trim(),
             Publisher = request.PublicationType.Trim(),
             PublishDate = publication.PublishDate ?? DateTime.UtcNow,
-            Description = publication.Description ?? "Без итоговой рецензии",
-            Volume = 1,
+            Description = string.IsNullOrWhiteSpace(publication.Description) ? "Без итоговой рецензии" : publication.Description,
+            Volume = publication.Volume,
+            SubjectId = publication.SubjectId,
+            ResourcesRate = publication.ResourcesRate,
             SubjectText = request.PublicationType.Trim()
         });
 
@@ -804,17 +806,25 @@ public class HomeController : Controller
         {
             return NotFound("Издание не найдено.");
         }
+        if (existingReview.PublicationId != request.PublicationId)
+        {
+            return BadRequest("Нельзя менять издание при редактировании существующей рецензии. Выберите корректное издание.");
+        }
+
+        var normalizedReviewText = request.ReviewText.Trim();
+        var isTextChanged = !string.Equals(existingReview.Content, normalizedReviewText, StringComparison.Ordinal);
 
         var updated = _reviewLogic.Update(new ReviewBindingModel
         {
             Id = request.Id,
             PublicationId = publication.Id,
             ReviewerId = user.Id,
-            Content = request.ReviewText.Trim(),
+            Content = normalizedReviewText,
             Rating = existingReview.Rating,
-            Status = existingReview.Status,
+            Status = isTextChanged ? ReviewStatus.Pending : existingReview.Status,
             CreatedAt = existingReview.CreatedAt,
-            ConfirmedById = existingReview.ConfirmedById
+            DeadlineUtc = existingReview.DeadlineUtc,
+            ConfirmedById = isTextChanged ? null : existingReview.ConfirmedById
         });
 
         if (!updated)
@@ -842,7 +852,7 @@ public class HomeController : Controller
             currentUserEmail,
             publication.Id,
             publication.Title,
-            request.ReviewText.Trim(),
+            normalizedReviewText,
             attachmentName,
             attachmentUrl,
             existingReview.CreatedAt));
@@ -1210,7 +1220,7 @@ public class HomeController : Controller
             Status = status,
             CreatedAt = review.CreatedAt,
             DeadlineUtc = review.DeadlineUtc,
-            ConfirmedById = review.ConfirmedById == 0 ? null : review.ConfirmedById
+            ConfirmedById = review.ConfirmedById
         });
         if (!updated)
         {
