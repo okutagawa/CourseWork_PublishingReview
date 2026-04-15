@@ -37,6 +37,6 @@ namespace PublishingReviewContracts.ViewModels
 
         public int ReviewerId { get; set; }
 
-        public int ConfirmedById { get; set; }
+        public int? ConfirmedById { get; set; }
     }
 }

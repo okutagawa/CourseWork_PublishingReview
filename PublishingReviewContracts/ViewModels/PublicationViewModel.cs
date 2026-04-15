@@ -29,6 +29,13 @@ namespace PublishingReviewContracts.ViewModels
         [DisplayName("Том")]
         public int Volume { get; set; }
 
+        [DisplayName("Предметная область (ID)")]
+        public int? SubjectId { get; set; }
+
+        [DisplayName("Оценка ресурсов")]
+        public decimal ResourcesRate { get; set; }
+
+
         [DisplayName("Тип публикации")]
         public string SubjectText { get; set; } = string.Empty;
     }

@@ -150,6 +150,8 @@ namespace PublishingReviewDatabase.Models
             Publisher = SubjectText,
             Description = Description ?? string.Empty,
             Volume = Volume,
+            SubjectId = SubjectId,
+            ResourcesRate = ResourcesRate,
             SubjectText = SubjectText
         };
     }
