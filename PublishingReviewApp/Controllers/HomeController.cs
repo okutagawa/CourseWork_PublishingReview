@@ -1516,6 +1516,10 @@ public class HomeController : Controller
         }
 
         var text = $"{publicationDescription} {reviewContent}".ToLowerInvariant();
+        if (Regex.IsMatch(text, @"\b(отклонен[аоы]?|отклонить|отклонено)\b"))
+        {
+            return ReviewWorkflowState.Rejected;
+        }
         if (Regex.IsMatch(text, @"\bтребует\s+доработк"))
         {
             return ReviewWorkflowState.RequiresRevision;
