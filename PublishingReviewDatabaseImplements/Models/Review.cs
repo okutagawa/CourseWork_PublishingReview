@@ -96,7 +96,7 @@ namespace PublishingReviewDatabase.Models
             Content = Content,
             Rating = Rating,
             Status = IsApproved ? ReviewStatus.Confirmed : ReviewStatus.Pending,
-            ConfirmedById = ApprovedByEmployeeId ?? 0,
+            ConfirmedById = ApprovedByEmployeeId,
             CreatedAt = CreatedAt,
             DeadlineUtc = DeadlineUtc
         };

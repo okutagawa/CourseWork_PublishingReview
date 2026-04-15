@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PublishingReviewDatabaseImplements")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+00c77e5aa026f4b64ed9c9f3f2f0ddf8899deead")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+93b3e58d295218aa43afa6ab87471064621dd4c2")]
 [assembly: System.Reflection.AssemblyProductAttribute("PublishingReviewDatabaseImplements")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PublishingReviewDatabaseImplements")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
