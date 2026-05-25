@@ -1,0 +1,2 @@
+@model PublishingReviewApp.DTOs.ReviewCreateDto
+<h2>Новый отзыв</h2><form method="post"><div asp-validation-summary="All" class="text-danger"></div><input type="hidden" asp-for="ProductId"/><div><label asp-for="Text"></label><textarea asp-for="Text" class="form-control"></textarea></div><div><label asp-for="RatingValue"></label><input asp-for="RatingValue" class="form-control"/></div><button class="btn btn-primary">Сохранить</button></form><partial name="_ValidationScriptsPartial"/>

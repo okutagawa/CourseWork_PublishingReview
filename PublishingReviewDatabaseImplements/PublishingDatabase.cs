@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PublishingReviewDatabase.Models;
 using PublishingReviewDatabaseImplements.Models;
+using PublishingReviewDatabaseImplements.Models.Shop;
 using System;
 
 namespace PublishingReviewDatabase
@@ -36,6 +37,11 @@ namespace PublishingReviewDatabase
         public DbSet<Attachment> Attachments { get; set; } = null!;
         public DbSet<PublicationAuthor> PublicationAuthors { get; set; } = null!;
         public DbSet<PublicationFavorite> PublicationFavorites { get; set; } = null!;
+        public DbSet<Product> Products { get; set; } = null!;
+        public DbSet<Category> Categories { get; set; } = null!;
+        public DbSet<ProductCategory> ProductCategories { get; set; } = null!;
+        public DbSet<ProductReview> ProductReviews { get; set; } = null!;
+        public DbSet<ProductRating> ProductRatings { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -110,6 +116,15 @@ namespace PublishingReviewDatabase
                 .HasForeignKey(r => r.ApprovedByEmployeeId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            
+            modelBuilder.Entity<ProductCategory>().HasKey(x => new { x.ProductId, x.CategoryId });
+            modelBuilder.Entity<ProductCategory>().HasOne(x => x.Product).WithMany(x => x.ProductCategories).HasForeignKey(x => x.ProductId);
+            modelBuilder.Entity<ProductCategory>().HasOne(x => x.Category).WithMany(x => x.ProductCategories).HasForeignKey(x => x.CategoryId);
+            modelBuilder.Entity<ProductReview>().HasOne(x => x.User).WithMany(x => x.ProductReviews).HasForeignKey(x => x.UserId);
+            modelBuilder.Entity<ProductReview>().HasOne(x => x.Product).WithMany(x => x.Reviews).HasForeignKey(x => x.ProductId);
+            modelBuilder.Entity<ProductRating>().HasOne(x => x.User).WithMany(x => x.ProductRatings).HasForeignKey(x => x.UserId);
+            modelBuilder.Entity<ProductRating>().HasOne(x => x.Product).WithMany(x => x.Ratings).HasForeignKey(x => x.ProductId);
+            modelBuilder.Entity<ProductRating>().HasIndex(x => new { x.ProductId, x.UserId }).IsUnique();
             // Если нужно, можно явно указать identity strategy для PostgreSQL:
             // modelBuilder.Entity<SomeEntity>().Property(e => e.Id).UseIdentityByDefaultColumn();
 
