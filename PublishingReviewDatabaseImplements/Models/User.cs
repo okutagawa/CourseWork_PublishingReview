@@ -2,6 +2,7 @@
 using PublishingReviewContracts.ViewModels;
 using PublishingReviewDataModels.Enums;
 using PublishingReviewDatabase.Models;
+using PublishingReviewDatabaseImplements.Models.Shop;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -30,6 +31,8 @@ namespace PublishingReviewDatabaseImplements.Models
         public virtual List<Comment> Comments { get; private set; } = new();
         public virtual List<PublicationAuthor> AuthoredPublications { get; private set; } = new();
         public virtual List<PublicationFavorite> FavoritePublications { get; private set; } = new();
+        public virtual List<ProductReview> ProductReviews { get; private set; } = new();
+        public virtual List<ProductRating> ProductRatings { get; private set; } = new();
 
         // Фабрика
         public static User? Create(UserBindingModel model)

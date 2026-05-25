@@ -1,0 +1,3 @@
+using System.ComponentModel.DataAnnotations;
+namespace PublishingReviewDatabaseImplements.Models.Shop;
+public class Product { public int Id { get; set; } [Required, StringLength(150)] public string Name { get; set; } = string.Empty; [StringLength(2000)] public string Description { get; set; } = string.Empty; [Range(0.01,double.MaxValue)] public decimal Price { get; set; } public DateTime CreatedAt { get; set; } = DateTime.UtcNow; public string? ImageUrl { get; set; } public List<ProductCategory> ProductCategories { get; set; } = new(); public List<ProductReview> Reviews { get; set; } = new(); public List<ProductRating> Ratings { get; set; } = new(); }
